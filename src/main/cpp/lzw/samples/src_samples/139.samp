@@ -1,0 +1,50 @@
+      Submodule->print(OS, Indent + 2, Dump);
+
+  for (unsigned I = 0, N = Exports.size(); I != N; ++I) {
+    OS.indent(Indent + 2);
+    OS << "export ";
+    if (Module *Restriction = Exports[I].getPointer()) {
+      OS << Restriction->getFullModuleName(true);
+      if (Exports[I].getInt())
+        OS << ".*";
+    } else {
+      OS << "*";
+    }
+    OS << "\n";
+  }
+
+  for (unsigned I = 0, N = UnresolvedExports.size(); I != N; ++I) {
+    OS.indent(Indent + 2);
+    OS << "export ";
+    printModuleId(OS, UnresolvedExports[I].Id);
+    if (UnresolvedExports[I].Wildcard)
+      OS << (UnresolvedExports[I].Id.empty() ? "*" : ".*");
+    OS << "\n";
+  }
+
+  if (Dump) {
+    for (Module *M : Imports) {
+      OS.indent(Indent + 2);
+      llvm::errs() << "import " << M->getFullModuleName() << "\n";
+    }
+  }
+
+  for (unsigned I = 0, N = DirectUses.size(); I != N; ++I) {
+    OS.indent(Indent + 2);
+    OS << "use ";
+    OS << DirectUses[I]->getFullModuleName(true);
+    OS << "\n";
+  }
+
+  for (unsigned I = 0, N = UnresolvedDirectUses.size(); I != N; ++I) {
+    OS.indent(Indent + 2);
+    OS << "use ";
+    printModuleId(OS, UnresolvedDirectUses[I]);
+    OS << "\n";
+  }
+
+  for (unsigned I = 0, N = LinkLibraries.size(); I != N; ++I) {
+    OS.indent(Indent + 2);
+    OS << "link ";
+    if (LinkLibraries[I].IsFramework)
+      OS << "framework ";

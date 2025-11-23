@@ -1,0 +1,50 @@
+}
+
+ImportDecl *ImportDecl::Create(ASTContext &C, DeclContext *DC,
+                               SourceLocation StartLoc, Module *Imported,
+                               ArrayRef<SourceLocation> IdentifierLocs) {
+  return new (C, DC,
+              additionalSizeToAlloc<SourceLocation>(IdentifierLocs.size()))
+      ImportDecl(DC, StartLoc, Imported, IdentifierLocs);
+}
+
+ImportDecl *ImportDecl::CreateImplicit(ASTContext &C, DeclContext *DC,
+                                       SourceLocation StartLoc,
+                                       Module *Imported,
+                                       SourceLocation EndLoc) {
+  ImportDecl *Import = new (C, DC, additionalSizeToAlloc<SourceLocation>(1))
+      ImportDecl(DC, StartLoc, Imported, EndLoc);
+  Import->setImplicit();
+  return Import;
+}
+
+ImportDecl *ImportDecl::CreateDeserialized(ASTContext &C, unsigned ID,
+                                           unsigned NumLocations) {
+  return new (C, ID, additionalSizeToAlloc<SourceLocation>(NumLocations))
+      ImportDecl(EmptyShell());
+}
+
+ArrayRef<SourceLocation> ImportDecl::getIdentifierLocs() const {
+  if (!isImportComplete())
+    return std::nullopt;
+
+  const auto *StoredLocs = getTrailingObjects<SourceLocation>();
+  return llvm::ArrayRef(StoredLocs,
+                        getNumModuleIdentifiers(getImportedModule()));
+}
+
+SourceRange ImportDecl::getSourceRange() const {
+  if (!isImportComplete())
+    return SourceRange(getLocation(), *getTrailingObjects<SourceLocation>());
+
+  return SourceRange(getLocation(), getIdentifierLocs().back());
+}
+
+//===----------------------------------------------------------------------===//
+// ExportDecl Implementation
+//===----------------------------------------------------------------------===//
+
+void ExportDecl::anchor() {}
+
+ExportDecl *ExportDecl::Create(ASTContext &C, DeclContext *DC,
+                               SourceLocation ExportLoc) {

@@ -1,0 +1,50 @@
+                     TypeSourceInfo *TInfo, StorageClass SC, bool UsesFPIntrin,
+                     bool isInlineSpecified, bool hasWrittenPrototype,
+                     ConstexprSpecKind ConstexprKind,
+                     Expr *TrailingRequiresClause) {
+  FunctionDecl *New = new (C, DC) FunctionDecl(
+      Function, C, DC, StartLoc, NameInfo, T, TInfo, SC, UsesFPIntrin,
+      isInlineSpecified, ConstexprKind, TrailingRequiresClause);
+  New->setHasWrittenPrototype(hasWrittenPrototype);
+  return New;
+}
+
+FunctionDecl *FunctionDecl::CreateDeserialized(ASTContext &C, unsigned ID) {
+  return new (C, ID) FunctionDecl(
+      Function, C, nullptr, SourceLocation(), DeclarationNameInfo(), QualType(),
+      nullptr, SC_None, false, false, ConstexprSpecKind::Unspecified, nullptr);
+}
+
+BlockDecl *BlockDecl::Create(ASTContext &C, DeclContext *DC, SourceLocation L) {
+  return new (C, DC) BlockDecl(DC, L);
+}
+
+BlockDecl *BlockDecl::CreateDeserialized(ASTContext &C, unsigned ID) {
+  return new (C, ID) BlockDecl(nullptr, SourceLocation());
+}
+
+CapturedDecl::CapturedDecl(DeclContext *DC, unsigned NumParams)
+    : Decl(Captured, DC, SourceLocation()), DeclContext(Captured),
+      NumParams(NumParams), ContextParam(0), BodyAndNothrow(nullptr, false) {}
+
+CapturedDecl *CapturedDecl::Create(ASTContext &C, DeclContext *DC,
+                                   unsigned NumParams) {
+  return new (C, DC, additionalSizeToAlloc<ImplicitParamDecl *>(NumParams))
+      CapturedDecl(DC, NumParams);
+}
+
+CapturedDecl *CapturedDecl::CreateDeserialized(ASTContext &C, unsigned ID,
+                                               unsigned NumParams) {
+  return new (C, ID, additionalSizeToAlloc<ImplicitParamDecl *>(NumParams))
+      CapturedDecl(nullptr, NumParams);
+}
+
+Stmt *CapturedDecl::getBody() const { return BodyAndNothrow.getPointer(); }
+void CapturedDecl::setBody(Stmt *B) { BodyAndNothrow.setPointer(B); }
+
+bool CapturedDecl::isNothrow() const { return BodyAndNothrow.getInt(); }
+void CapturedDecl::setNothrow(bool Nothrow) { BodyAndNothrow.setInt(Nothrow); }
+
+EnumConstantDecl::EnumConstantDecl(const ASTContext &C, DeclContext *DC,
+                                   SourceLocation L, IdentifierInfo *Id,
+                                   QualType T, Expr *E, const llvm::APSInt &V)

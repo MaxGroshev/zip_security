@@ -1,0 +1,50 @@
+  }
+  // Set info on matched template parameter lists (if any).
+  if (!TPLists.empty()) {
+    TemplParamLists = new (Context) TemplateParameterList *[TPLists.size()];
+    NumTemplParamLists = TPLists.size();
+    std::copy(TPLists.begin(), TPLists.end(), TemplParamLists);
+  }
+}
+
+//===----------------------------------------------------------------------===//
+// VarDecl Implementation
+//===----------------------------------------------------------------------===//
+
+const char *VarDecl::getStorageClassSpecifierString(StorageClass SC) {
+  switch (SC) {
+  case SC_None:                 break;
+  case SC_Auto:                 return "auto";
+  case SC_Extern:               return "extern";
+  case SC_PrivateExtern:        return "__private_extern__";
+  case SC_Register:             return "register";
+  case SC_Static:               return "static";
+  }
+
+  llvm_unreachable("Invalid storage class");
+}
+
+VarDecl::VarDecl(Kind DK, ASTContext &C, DeclContext *DC,
+                 SourceLocation StartLoc, SourceLocation IdLoc,
+                 const IdentifierInfo *Id, QualType T, TypeSourceInfo *TInfo,
+                 StorageClass SC)
+    : DeclaratorDecl(DK, DC, IdLoc, Id, T, TInfo, StartLoc),
+      redeclarable_base(C) {
+  static_assert(sizeof(VarDeclBitfields) <= sizeof(unsigned),
+                "VarDeclBitfields too large!");
+  static_assert(sizeof(ParmVarDeclBitfields) <= sizeof(unsigned),
+                "ParmVarDeclBitfields too large!");
+  static_assert(sizeof(NonParmVarDeclBitfields) <= sizeof(unsigned),
+                "NonParmVarDeclBitfields too large!");
+  AllBits = 0;
+  VarDeclBits.SClass = SC;
+  // Everything else is implicitly initialized to false.
+}
+
+VarDecl *VarDecl::Create(ASTContext &C, DeclContext *DC, SourceLocation StartL,
+                         SourceLocation IdL, const IdentifierInfo *Id,
+                         QualType T, TypeSourceInfo *TInfo, StorageClass S) {
+  return new (C, DC) VarDecl(Var, C, DC, StartL, IdL, Id, T, TInfo, S);
+}
+
+VarDecl *VarDecl::CreateDeserialized(ASTContext &C, unsigned ID) {

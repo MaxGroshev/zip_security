@@ -1,0 +1,50 @@
+                              const clang::DiagnosticOptions &opts) {
+  llvm::SmallVector<clang::diag::kind, 10> diags;
+  const llvm::IntrusiveRefCntPtr<clang::DiagnosticIDs> diagIDs =
+      diagsEng.getDiagnosticIDs();
+
+  for (unsigned i = 0; i < opts.Remarks.size(); i++) {
+    llvm::StringRef remarkOpt = opts.Remarks[i];
+    const auto flavor = clang::diag::Flavor::Remark;
+
+    // Check to see if this opt starts with "no-", if so, this is a
+    // negative form of the option.
+    bool isPositive = !remarkOpt.starts_with("no-");
+    if (!isPositive)
+      remarkOpt = remarkOpt.substr(3);
+
+    // Verify that this is a valid optimization remarks option
+    if (diagIDs->getDiagnosticsInGroup(flavor, remarkOpt, diags)) {
+      emitUnknownDiagWarning(diagsEng, flavor, isPositive ? "-R" : "-Rno-",
+                             remarkOpt);
+      return;
+    }
+
+    diagsEng.setSeverityForGroup(flavor, remarkOpt,
+                                 isPositive ? clang::diag::Severity::Remark
+                                            : clang::diag::Severity::Ignored);
+  }
+}
+
+bool executeCompilerInvocation(CompilerInstance *flang) {
+  // Honor -help.
+  if (flang->getFrontendOpts().showHelp) {
+    clang::driver::getDriverOptTable().printHelp(
+        llvm::outs(), "flang-new -fc1 [options] file...",
+        "LLVM 'Flang' Compiler",
+        /*ShowHidden=*/false, /*ShowAllAliases=*/false,
+        llvm::opt::Visibility(clang::driver::options::FC1Option));
+    return true;
+  }
+
+  // Honor -version.
+  if (flang->getFrontendOpts().showVersion) {
+    llvm::cl::PrintVersionMessage();
+    return true;
+  }
+
+  // Load any requested plugins.
+  for (const std::string &path : flang->getFrontendOpts().plugins) {
+    std::string error;
+    if (llvm::sys::DynamicLibrary::LoadLibraryPermanently(path.c_str(),
+                                                          &error)) {

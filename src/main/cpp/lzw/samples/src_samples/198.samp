@@ -1,0 +1,50 @@
+  return ContextID(Known->second.first);
+}
+
+void APINotesWriter::addObjCProperty(ContextID CtxID, StringRef Name,
+                                     bool IsInstanceProperty,
+                                     const ObjCPropertyInfo &Info,
+                                     VersionTuple SwiftVersion) {
+  IdentifierID NameID = Implementation->getIdentifier(Name);
+  Implementation
+      ->ObjCProperties[std::make_tuple(CtxID.Value, NameID, IsInstanceProperty)]
+      .push_back({SwiftVersion, Info});
+}
+
+void APINotesWriter::addObjCMethod(ContextID CtxID, ObjCSelectorRef Selector,
+                                   bool IsInstanceMethod,
+                                   const ObjCMethodInfo &Info,
+                                   VersionTuple SwiftVersion) {
+  SelectorID SelID = Implementation->getSelector(Selector);
+  auto Key = std::tuple<unsigned, unsigned, char>{CtxID.Value, SelID,
+                                                  IsInstanceMethod};
+  Implementation->ObjCMethods[Key].push_back({SwiftVersion, Info});
+
+  // If this method is a designated initializer, update the class to note that
+  // it has designated initializers.
+  if (Info.DesignatedInit) {
+    assert(Implementation->ParentContexts.contains(CtxID.Value));
+    uint32_t ParentCtxID = Implementation->ParentContexts[CtxID.Value];
+    ContextTableKey CtxKey(ParentCtxID,
+                           static_cast<uint8_t>(ContextKind::ObjCClass),
+                           Implementation->ObjCContextNames[CtxID.Value]);
+    assert(Implementation->ObjCContexts.contains(CtxKey));
+    auto &VersionedVec = Implementation->ObjCContexts[CtxKey].second;
+    bool Found = false;
+    for (auto &Versioned : VersionedVec) {
+      if (Versioned.first == SwiftVersion) {
+        Versioned.second.setHasDesignatedInits(true);
+        Found = true;
+        break;
+      }
+    }
+
+    if (!Found) {
+      VersionedVec.push_back({SwiftVersion, ObjCContextInfo()});
+      VersionedVec.back().second.setHasDesignatedInits(true);
+    }
+  }
+}
+
+void APINotesWriter::addGlobalVariable(std::optional<Context> Ctx,
+                                       llvm::StringRef Name,

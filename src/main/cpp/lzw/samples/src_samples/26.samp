@@ -1,0 +1,50 @@
+      if (Bop->isLogicalOp()) {
+        TryResult LHS = tryEvaluateBool(Bop->getLHS());
+        if (LHS.isKnown()) {
+          // We were able to evaluate the LHS, see if we can get away with not
+          // evaluating the RHS: 0 && X -> 0, 1 || X -> 1
+          if (LHS.isTrue() == (Bop->getOpcode() == BO_LOr))
+            return LHS.isTrue();
+
+          TryResult RHS = tryEvaluateBool(Bop->getRHS());
+          if (RHS.isKnown()) {
+            if (Bop->getOpcode() == BO_LOr)
+              return LHS.isTrue() || RHS.isTrue();
+            else
+              return LHS.isTrue() && RHS.isTrue();
+          }
+        } else {
+          TryResult RHS = tryEvaluateBool(Bop->getRHS());
+          if (RHS.isKnown()) {
+            // We can't evaluate the LHS; however, sometimes the result
+            // is determined by the RHS: X && 0 -> 0, X || 1 -> 1.
+            if (RHS.isTrue() == (Bop->getOpcode() == BO_LOr))
+              return RHS.isTrue();
+          } else {
+            TryResult BopRes = checkIncorrectLogicOperator(Bop);
+            if (BopRes.isKnown())
+              return BopRes.isTrue();
+          }
+        }
+
+        return {};
+      } else if (Bop->isEqualityOp()) {
+          TryResult BopRes = checkIncorrectEqualityOperator(Bop);
+          if (BopRes.isKnown())
+            return BopRes.isTrue();
+      } else if (Bop->isRelationalOp()) {
+        TryResult BopRes = checkIncorrectRelationalOperator(Bop);
+        if (BopRes.isKnown())
+          return BopRes.isTrue();
+      } else if (Bop->getOpcode() == BO_Or) {
+        TryResult BopRes = checkIncorrectBitwiseOrOperator(Bop);
+        if (BopRes.isKnown())
+          return BopRes.isTrue();
+      }
+    }
+
+    bool Result;
+    if (E->EvaluateAsBooleanCondition(Result, *Context))
+      return Result;
+
+    return {};

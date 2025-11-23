@@ -1,0 +1,50 @@
+    assert(S && "Expected non-null used-in-clause child.");
+    if (CFGBlock *R = Visit(S))
+      B = R;
+  }
+  // Visit associated structured block if any.
+  if (!D->isStandaloneDirective()) {
+    Stmt *S = D->getRawStmt();
+    if (!isa<CompoundStmt>(S))
+      addLocalScopeAndDtors(S);
+    if (CFGBlock *R = addStmt(S))
+      B = R;
+  }
+
+  return B;
+}
+
+/// createBlock - Constructs and adds a new CFGBlock to the CFG.  The block has
+///  no successors or predecessors.  If this is the first block created in the
+///  CFG, it is automatically set to be the Entry and Exit of the CFG.
+CFGBlock *CFG::createBlock() {
+  bool first_block = begin() == end();
+
+  // Create the block.
+  CFGBlock *Mem = new (getAllocator()) CFGBlock(NumBlockIDs++, BlkBVC, this);
+  Blocks.push_back(Mem, BlkBVC);
+
+  // If this is the first block, set it as the Entry and Exit.
+  if (first_block)
+    Entry = Exit = &back();
+
+  // Return the block.
+  return &back();
+}
+
+/// buildCFG - Constructs a CFG from an AST.
+std::unique_ptr<CFG> CFG::buildCFG(const Decl *D, Stmt *Statement,
+                                   ASTContext *C, const BuildOptions &BO) {
+  CFGBuilder Builder(C, BO);
+  return Builder.buildCFG(D, Statement);
+}
+
+bool CFG::isLinear() const {
+  // Quick path: if we only have the ENTRY block, the EXIT block, and some code
+  // in between, then we have no room for control flow.
+  if (size() <= 3)
+    return true;
+
+  // Traverse the CFG until we find a branch.
+  // TODO: While this should still be very fast,
+  // maybe we should cache the answer.

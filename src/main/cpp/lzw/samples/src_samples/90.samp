@@ -1,0 +1,50 @@
+
+    addStmt(Sub);
+  }
+
+  CFGBlock *CaseBlock = Block;
+  if (!CaseBlock)
+    CaseBlock = createBlock();
+
+  // Cases statements partition blocks, so this is the top of the basic block we
+  // were processing (the "case XXX:" is the label).
+  CaseBlock->setLabel(CS);
+
+  if (badCFG)
+    return nullptr;
+
+  // Add this block to the list of successors for the block with the switch
+  // statement.
+  assert(SwitchTerminatedBlock);
+  addSuccessor(SwitchTerminatedBlock, CaseBlock,
+               shouldAddCase(switchExclusivelyCovered, switchCond,
+                             CS, *Context));
+
+  // We set Block to NULL to allow lazy creation of a new block (if necessary).
+  Block = nullptr;
+
+  if (TopBlock) {
+    addSuccessor(LastBlock, CaseBlock);
+    Succ = TopBlock;
+  } else {
+    // This block is now the implicit successor of other blocks.
+    Succ = CaseBlock;
+  }
+
+  return Succ;
+}
+
+CFGBlock *CFGBuilder::VisitDefaultStmt(DefaultStmt *Terminator) {
+  if (Terminator->getSubStmt())
+    addStmt(Terminator->getSubStmt());
+
+  DefaultCaseBlock = Block;
+
+  if (!DefaultCaseBlock)
+    DefaultCaseBlock = createBlock();
+
+  // Default statements partition blocks, so this is the top of the basic block
+  // we were processing (the "default:" is the label).
+  DefaultCaseBlock->setLabel(Terminator);
+
+  if (badCFG)

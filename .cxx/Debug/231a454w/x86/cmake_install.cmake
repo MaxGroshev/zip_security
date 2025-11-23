@@ -1,4 +1,4 @@
-# Install script for directory: /Users/max/research/projects/app/src/main/cpp
+# Install script for directory: /Users/max/research/projects/kotlin/zipper/app/src/main/cpp
 
 # Set the install prefix
 if(NOT DEFINED CMAKE_INSTALL_PREFIX)
@@ -50,5 +50,5 @@ endif()
 
 string(REPLACE ";" "\n" CMAKE_INSTALL_MANIFEST_CONTENT
        "${CMAKE_INSTALL_MANIFEST_FILES}")
-file(WRITE "/Users/max/research/projects/app/.cxx/Debug/231a454w/x86/${CMAKE_INSTALL_MANIFEST}"
+file(WRITE "/Users/max/research/projects/kotlin/zipper/app/.cxx/Debug/231a454w/x86/${CMAKE_INSTALL_MANIFEST}"
      "${CMAKE_INSTALL_MANIFEST_CONTENT}")

@@ -1,0 +1,50 @@
+
+  /// Returns whetherh there is an object-like overload, i.e. where the macro
+  /// has no arguments and should not consume subsequent parentheses.
+  bool objectLike(llvm::StringRef Name) const;
+
+  /// Returns whether macro \p Name provides an overload with the given arity.
+  bool hasArity(llvm::StringRef Name, unsigned Arity) const;
+
+  /// Returns the expanded stream of format tokens for \p ID, where
+  /// each element in \p Args is a positional argument to the macro call.
+  /// If \p Args is not set, the object-like overload is used.
+  /// If \p Args is set, the overload with the arity equal to \c Args.size() is
+  /// used.
+  llvm::SmallVector<FormatToken *, 8>
+  expand(FormatToken *ID, std::optional<ArgsList> OptionalArgs) const;
+
+private:
+  struct Definition;
+  class DefinitionParser;
+
+  void parseDefinition(const std::string &Macro);
+
+  clang::SourceManager &SourceMgr;
+  const FormatStyle &Style;
+  llvm::SpecificBumpPtrAllocator<FormatToken> &Allocator;
+  IdentifierTable &IdentTable;
+  SmallVector<std::unique_ptr<llvm::MemoryBuffer>> Buffers;
+  llvm::StringMap<llvm::DenseMap<int, Definition>> FunctionLike;
+  llvm::StringMap<Definition> ObjectLike;
+};
+
+/// Converts a sequence of UnwrappedLines containing expanded macros into a
+/// single UnwrappedLine containing the macro calls.  This UnwrappedLine may be
+/// broken into child lines, in a way that best conveys the structure of the
+/// expanded code.
+///
+/// In the simplest case, a spelled UnwrappedLine contains one macro, and after
+/// expanding it we have one expanded UnwrappedLine.  In general, macro
+/// expansions can span UnwrappedLines, and multiple macros can contribute
+/// tokens to the same line.  We keep consuming expanded lines until:
+/// *   all expansions that started have finished (we're not chopping any macros
+///     in half)
+/// *   *and* we've reached the end of a *spelled* unwrapped line.
+///
+/// A single UnwrappedLine represents this chunk of code.
+///
+/// After this point, the state of the spelled/expanded stream is "in sync"
+/// (both at the start of an UnwrappedLine, with no macros open), so the
+/// Reconstructor can be thrown away and parsing can continue.
+///

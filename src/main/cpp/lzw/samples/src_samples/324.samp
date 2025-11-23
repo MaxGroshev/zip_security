@@ -1,0 +1,50 @@
+    // Here Qualifier == 0, i.e., we are removing the qualifier (if any).
+    if (hasExtInfo()) {
+      if (getExtInfo()->NumTemplParamLists == 0) {
+        getASTContext().Deallocate(getExtInfo());
+        TypedefNameDeclOrQualifier = (TypedefNameDecl *)nullptr;
+      }
+      else
+        getExtInfo()->QualifierLoc = QualifierLoc;
+    }
+  }
+}
+
+void TagDecl::printName(raw_ostream &OS, const PrintingPolicy &Policy) const {
+  DeclarationName Name = getDeclName();
+  // If the name is supposed to have an identifier but does not have one, then
+  // the tag is anonymous and we should print it differently.
+  if (Name.isIdentifier() && !Name.getAsIdentifierInfo()) {
+    // If the caller wanted to print a qualified name, they've already printed
+    // the scope. And if the caller doesn't want that, the scope information
+    // is already printed as part of the type.
+    PrintingPolicy Copy(Policy);
+    Copy.SuppressScope = true;
+    getASTContext().getTagDeclType(this).print(OS, Copy);
+    return;
+  }
+  // Otherwise, do the normal printing.
+  Name.print(OS, Policy);
+}
+
+void TagDecl::setTemplateParameterListsInfo(
+    ASTContext &Context, ArrayRef<TemplateParameterList *> TPLists) {
+  assert(!TPLists.empty());
+  // Make sure the extended decl info is allocated.
+  if (!hasExtInfo())
+    // Allocate external info struct.
+    TypedefNameDeclOrQualifier = new (getASTContext()) ExtInfo;
+  // Set the template parameter lists info.
+  getExtInfo()->setTemplateParameterListsInfo(Context, TPLists);
+}
+
+//===----------------------------------------------------------------------===//
+// EnumDecl Implementation
+//===----------------------------------------------------------------------===//
+
+EnumDecl::EnumDecl(ASTContext &C, DeclContext *DC, SourceLocation StartLoc,
+                   SourceLocation IdLoc, IdentifierInfo *Id, EnumDecl *PrevDecl,
+                   bool Scoped, bool ScopedUsingClassTag, bool Fixed)
+    : TagDecl(Enum, TagTypeKind::Enum, C, DC, IdLoc, Id, PrevDecl, StartLoc) {
+  assert(Scoped || !ScopedUsingClassTag);
+  IntegerType = nullptr;

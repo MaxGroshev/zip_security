@@ -1,0 +1,50 @@
+    return Definition->Body.get(getASTContext().getExternalSource());
+
+  return nullptr;
+}
+
+void FunctionDecl::setBody(Stmt *B) {
+  FunctionDeclBits.HasDefaultedFunctionInfo = false;
+  Body = LazyDeclStmtPtr(B);
+  if (B)
+    EndRangeLoc = B->getEndLoc();
+}
+
+void FunctionDecl::setIsPureVirtual(bool P) {
+  FunctionDeclBits.IsPureVirtual = P;
+  if (P)
+    if (auto *Parent = dyn_cast<CXXRecordDecl>(getDeclContext()))
+      Parent->markedVirtualFunctionPure();
+}
+
+template<std::size_t Len>
+static bool isNamed(const NamedDecl *ND, const char (&Str)[Len]) {
+  const IdentifierInfo *II = ND->getIdentifier();
+  return II && II->isStr(Str);
+}
+
+bool FunctionDecl::isImmediateEscalating() const {
+  // C++23 [expr.const]/p17
+  // An immediate-escalating function is
+  //  - the call operator of a lambda that is not declared with the consteval
+  //  specifier,
+  if (isLambdaCallOperator(this) && !isConsteval())
+    return true;
+  // - a defaulted special member function that is not declared with the
+  // consteval specifier,
+  if (isDefaulted() && !isConsteval())
+    return true;
+  // - a function that results from the instantiation of a templated entity
+  // defined with the constexpr specifier.
+  TemplatedKind TK = getTemplatedKind();
+  if (TK != TK_NonTemplate && TK != TK_DependentNonTemplate &&
+      isConstexprSpecified())
+    return true;
+  return false;
+}
+
+bool FunctionDecl::isImmediateFunction() const {
+  // C++23 [expr.const]/p18
+  // An immediate function is a function or constructor that is
+  // - declared with the consteval specifier
+  if (isConsteval())

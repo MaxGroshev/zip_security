@@ -1,0 +1,50 @@
+    llvm::SmallString<4096> HashTableBlob;
+    uint32_t Offset;
+    {
+      llvm::OnDiskChainedHashTableGenerator<ObjCSelectorTableInfo> Generator;
+      for (auto &S : SelectorIDs)
+        Generator.insert(S.first, S.second);
+
+      llvm::raw_svector_ostream BlobStream(HashTableBlob);
+      // Make sure that no bucket is at offset 0
+      llvm::support::endian::write<uint32_t>(BlobStream, 0,
+                                             llvm::endianness::little);
+      Offset = Generator.Emit(BlobStream);
+    }
+
+    objc_selector_block::ObjCSelectorDataLayout ObjCSelectorData(Stream);
+    ObjCSelectorData.emit(Scratch, Offset, HashTableBlob);
+  }
+}
+
+namespace {
+/// Used to serialize the on-disk global variable table.
+class GlobalVariableTableInfo
+    : public VersionedTableInfo<GlobalVariableTableInfo, ContextTableKey,
+                                GlobalVariableInfo> {
+public:
+  unsigned getKeyLength(key_type_ref) {
+    return sizeof(uint32_t) + sizeof(uint8_t) + sizeof(uint32_t);
+  }
+
+  void EmitKey(raw_ostream &OS, key_type_ref Key, unsigned) {
+    llvm::support::endian::Writer writer(OS, llvm::endianness::little);
+    writer.write<uint32_t>(Key.parentContextID);
+    writer.write<uint8_t>(Key.contextKind);
+    writer.write<uint32_t>(Key.contextID);
+  }
+
+  hash_value_type ComputeHash(key_type_ref Key) {
+    return static_cast<size_t>(Key.hashValue());
+  }
+
+  unsigned getUnversionedInfoSize(const GlobalVariableInfo &GVI) {
+    return getVariableInfoSize(GVI);
+  }
+
+  void emitUnversionedInfo(raw_ostream &OS, const GlobalVariableInfo &GVI) {
+    emitVariableInfo(OS, GVI);
+  }
+};
+} // namespace
+

@@ -1,0 +1,50 @@
+    LastBlock = addStmt(Init);
+  }
+
+  return LastBlock;
+}
+
+CFGBlock *CFGBuilder::VisitReturnStmt(Stmt *S) {
+  // If we were in the middle of a block we stop processing that block.
+  //
+  // NOTE: If a "return" or "co_return" appears in the middle of a block, this
+  //       means that the code afterwards is DEAD (unreachable).  We still keep
+  //       a basic block for that code; a simple "mark-and-sweep" from the entry
+  //       block will be able to report such dead blocks.
+  assert(isa<ReturnStmt>(S) || isa<CoreturnStmt>(S));
+
+  // Create the new block.
+  Block = createBlock(false);
+
+  addAutomaticObjHandling(ScopePos, LocalScope::const_iterator(), S);
+
+  if (auto *R = dyn_cast<ReturnStmt>(S))
+    findConstructionContexts(
+        ConstructionContextLayer::create(cfg->getBumpVectorContext(), R),
+        R->getRetValue());
+
+  // If the one of the destructors does not return, we already have the Exit
+  // block as a successor.
+  if (!Block->hasNoReturnElement())
+    addSuccessor(Block, &cfg->getExit());
+
+  // Add the return statement to the block.
+  appendStmt(Block, S);
+
+  // Visit children
+  if (ReturnStmt *RS = dyn_cast<ReturnStmt>(S)) {
+    if (Expr *O = RS->getRetValue())
+      return Visit(O, AddStmtChoice::AlwaysAdd, /*ExternallyDestructed=*/true);
+    return Block;
+  }
+
+  CoreturnStmt *CRS = cast<CoreturnStmt>(S);
+  auto *B = Block;
+  if (CFGBlock *R = Visit(CRS->getPromiseCall()))
+    B = R;
+
+  if (Expr *RV = CRS->getOperand())
+    if (RV->getType()->isVoidType() && !isa<InitListExpr>(RV))
+      // A non-initlist void expression.
+      if (CFGBlock *R = Visit(RV))
+        B = R;

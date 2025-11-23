@@ -1,0 +1,50 @@
+
+  /// Information about parent contexts for each context.
+  ///
+  /// Indexed by context ID, provides the parent context ID.
+  llvm::DenseMap<uint32_t, uint32_t> ParentContexts;
+
+  /// Mapping from context IDs to the identifier ID holding the name.
+  llvm::DenseMap<unsigned, unsigned> ObjCContextNames;
+
+  /// Information about Objective-C properties.
+  ///
+  /// Indexed by the context ID, property name, and whether this is an
+  /// instance property.
+  llvm::DenseMap<
+      std::tuple<unsigned, unsigned, char>,
+      llvm::SmallVector<std::pair<VersionTuple, ObjCPropertyInfo>, 1>>
+      ObjCProperties;
+
+  /// Information about Objective-C methods.
+  ///
+  /// Indexed by the context ID, selector ID, and Boolean (stored as a char)
+  /// indicating whether this is a class or instance method.
+  llvm::DenseMap<std::tuple<unsigned, unsigned, char>,
+                 llvm::SmallVector<std::pair<VersionTuple, ObjCMethodInfo>, 1>>
+      ObjCMethods;
+
+  /// Mapping from selectors to selector ID.
+  llvm::DenseMap<StoredObjCSelector, SelectorID> SelectorIDs;
+
+  /// Information about global variables.
+  ///
+  /// Indexed by the context ID, contextKind, identifier ID.
+  llvm::DenseMap<
+      ContextTableKey,
+      llvm::SmallVector<std::pair<VersionTuple, GlobalVariableInfo>, 1>>
+      GlobalVariables;
+
+  /// Information about global functions.
+  ///
+  /// Indexed by the context ID, contextKind, identifier ID.
+  llvm::DenseMap<
+      ContextTableKey,
+      llvm::SmallVector<std::pair<VersionTuple, GlobalFunctionInfo>, 1>>
+      GlobalFunctions;
+
+  /// Information about enumerators.
+  ///
+  /// Indexed by the identifier ID.
+  llvm::DenseMap<
+      unsigned, llvm::SmallVector<std::pair<VersionTuple, EnumConstantInfo>, 1>>

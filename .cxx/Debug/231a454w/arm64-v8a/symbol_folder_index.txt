@@ -1,1 +1,1 @@
-/Users/max/research/projects/app/build/intermediates/cxx/Debug/231a454w/obj/arm64-v8a
+/Users/max/research/projects/kotlin/zipper/app/build/intermediates/cxx/Debug/231a454w/obj/arm64-v8a

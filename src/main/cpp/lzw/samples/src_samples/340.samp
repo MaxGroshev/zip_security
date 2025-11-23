@@ -1,0 +1,50 @@
+  assert(C.getLangOpts().IncrementalExtensions &&
+         "Must be used only in incremental mode");
+
+  SourceLocation Loc = Statement ? Statement->getBeginLoc() : SourceLocation();
+  DeclContext *DC = C.getTranslationUnitDecl();
+
+  return new (C, DC) TopLevelStmtDecl(DC, Loc, Statement);
+}
+
+TopLevelStmtDecl *TopLevelStmtDecl::CreateDeserialized(ASTContext &C,
+                                                       unsigned ID) {
+  return new (C, ID)
+      TopLevelStmtDecl(/*DC=*/nullptr, SourceLocation(), /*S=*/nullptr);
+}
+
+SourceRange TopLevelStmtDecl::getSourceRange() const {
+  return SourceRange(getLocation(), Statement->getEndLoc());
+}
+
+void TopLevelStmtDecl::setStmt(Stmt *S) {
+  assert(S);
+  Statement = S;
+  setLocation(Statement->getBeginLoc());
+}
+
+void EmptyDecl::anchor() {}
+
+EmptyDecl *EmptyDecl::Create(ASTContext &C, DeclContext *DC, SourceLocation L) {
+  return new (C, DC) EmptyDecl(DC, L);
+}
+
+EmptyDecl *EmptyDecl::CreateDeserialized(ASTContext &C, unsigned ID) {
+  return new (C, ID) EmptyDecl(nullptr, SourceLocation());
+}
+
+HLSLBufferDecl::HLSLBufferDecl(DeclContext *DC, bool CBuffer,
+                               SourceLocation KwLoc, IdentifierInfo *ID,
+                               SourceLocation IDLoc, SourceLocation LBrace)
+    : NamedDecl(Decl::Kind::HLSLBuffer, DC, IDLoc, DeclarationName(ID)),
+      DeclContext(Decl::Kind::HLSLBuffer), LBraceLoc(LBrace), KwLoc(KwLoc),
+      IsCBuffer(CBuffer) {}
+
+HLSLBufferDecl *HLSLBufferDecl::Create(ASTContext &C,
+                                       DeclContext *LexicalParent, bool CBuffer,
+                                       SourceLocation KwLoc, IdentifierInfo *ID,
+                                       SourceLocation IDLoc,
+                                       SourceLocation LBrace) {
+  // For hlsl like this
+  // cbuffer A {
+  //     cbuffer B {

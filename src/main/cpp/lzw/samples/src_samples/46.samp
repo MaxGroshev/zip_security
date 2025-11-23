@@ -1,0 +1,50 @@
+    case Stmt::DefaultStmtClass:
+      return VisitDefaultStmt(cast<DefaultStmt>(S));
+
+    case Stmt::DoStmtClass:
+      return VisitDoStmt(cast<DoStmt>(S));
+
+    case Stmt::ForStmtClass:
+      return VisitForStmt(cast<ForStmt>(S));
+
+    case Stmt::GotoStmtClass:
+      return VisitGotoStmt(cast<GotoStmt>(S));
+
+    case Stmt::GCCAsmStmtClass:
+      return VisitGCCAsmStmt(cast<GCCAsmStmt>(S), asc);
+
+    case Stmt::IfStmtClass:
+      return VisitIfStmt(cast<IfStmt>(S));
+
+    case Stmt::ImplicitCastExprClass:
+      return VisitImplicitCastExpr(cast<ImplicitCastExpr>(S), asc);
+
+    case Stmt::ConstantExprClass:
+      return VisitConstantExpr(cast<ConstantExpr>(S), asc);
+
+    case Stmt::IndirectGotoStmtClass:
+      return VisitIndirectGotoStmt(cast<IndirectGotoStmt>(S));
+
+    case Stmt::LabelStmtClass:
+      return VisitLabelStmt(cast<LabelStmt>(S));
+
+    case Stmt::LambdaExprClass:
+      return VisitLambdaExpr(cast<LambdaExpr>(S), asc);
+
+    case Stmt::MaterializeTemporaryExprClass:
+      return VisitMaterializeTemporaryExpr(cast<MaterializeTemporaryExpr>(S),
+                                           asc);
+
+    case Stmt::MemberExprClass:
+      return VisitMemberExpr(cast<MemberExpr>(S), asc);
+
+    case Stmt::NullStmtClass:
+      return Block;
+
+    case Stmt::ObjCAtCatchStmtClass:
+      return VisitObjCAtCatchStmt(cast<ObjCAtCatchStmt>(S));
+
+    case Stmt::ObjCAutoreleasePoolStmtClass:
+      return VisitObjCAutoreleasePoolStmt(cast<ObjCAutoreleasePoolStmt>(S));
+
+    case Stmt::ObjCAtSynchronizedStmtClass:

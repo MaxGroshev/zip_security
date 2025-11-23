@@ -1,0 +1,50 @@
+
+    return VisitChildren(C);
+  }
+
+  if (Block) {
+    Succ = Block;
+    if (badCFG)
+      return nullptr;
+  }
+
+  if (NoReturn)
+    Block = createNoReturnBlock();
+  else
+    Block = createBlock();
+
+  appendCall(Block, C);
+
+  if (AddEHEdge) {
+    // Add exceptional edges.
+    if (TryTerminatedBlock)
+      addSuccessor(Block, TryTerminatedBlock);
+    else
+      addSuccessor(Block, &cfg->getExit());
+  }
+
+  return VisitChildren(C);
+}
+
+CFGBlock *CFGBuilder::VisitChooseExpr(ChooseExpr *C,
+                                      AddStmtChoice asc) {
+  CFGBlock *ConfluenceBlock = Block ? Block : createBlock();
+  appendStmt(ConfluenceBlock, C);
+  if (badCFG)
+    return nullptr;
+
+  AddStmtChoice alwaysAdd = asc.withAlwaysAdd(true);
+  Succ = ConfluenceBlock;
+  Block = nullptr;
+  CFGBlock *LHSBlock = Visit(C->getLHS(), alwaysAdd);
+  if (badCFG)
+    return nullptr;
+
+  Succ = ConfluenceBlock;
+  Block = nullptr;
+  CFGBlock *RHSBlock = Visit(C->getRHS(), alwaysAdd);
+  if (badCFG)
+    return nullptr;
+
+  Block = createBlock(false);
+  // See if this is a known constant.

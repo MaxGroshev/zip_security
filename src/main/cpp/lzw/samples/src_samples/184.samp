@@ -1,0 +1,50 @@
+  if (ObjCContexts.empty())
+    return;
+
+  {
+    llvm::SmallString<4096> HashTableBlob;
+    uint32_t Offset;
+    {
+      llvm::OnDiskChainedHashTableGenerator<ObjCContextIDTableInfo> Generator;
+      for (auto &OC : ObjCContexts)
+        Generator.insert(OC.first, OC.second.first);
+
+      llvm::raw_svector_ostream BlobStream(HashTableBlob);
+      // Make sure that no bucket is at offset 0
+      llvm::support::endian::write<uint32_t>(BlobStream, 0,
+                                             llvm::endianness::little);
+      Offset = Generator.Emit(BlobStream);
+    }
+
+    objc_context_block::ObjCContextIDLayout ObjCContextID(Stream);
+    ObjCContextID.emit(Scratch, Offset, HashTableBlob);
+  }
+
+  {
+    llvm::SmallString<4096> HashTableBlob;
+    uint32_t Offset;
+    {
+      llvm::OnDiskChainedHashTableGenerator<ObjCContextInfoTableInfo> Generator;
+      for (auto &OC : ObjCContexts)
+        Generator.insert(OC.second.first, OC.second.second);
+
+      llvm::raw_svector_ostream BlobStream(HashTableBlob);
+      // Make sure that no bucket is at offset 0
+      llvm::support::endian::write<uint32_t>(BlobStream, 0,
+                                             llvm::endianness::little);
+      Offset = Generator.Emit(BlobStream);
+    }
+
+    objc_context_block::ObjCContextInfoLayout ObjCContextInfo(Stream);
+    ObjCContextInfo.emit(Scratch, Offset, HashTableBlob);
+  }
+}
+
+namespace {
+/// Retrieve the serialized size of the given VariableInfo, for use in
+/// on-disk hash tables.
+unsigned getVariableInfoSize(const VariableInfo &VI) {
+  return 2 + getCommonEntityInfoSize(VI) + 2 + VI.getType().size();
+}
+
+/// Emit a serialized representation of the variable information.

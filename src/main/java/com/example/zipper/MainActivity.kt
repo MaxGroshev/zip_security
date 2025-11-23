@@ -11,6 +11,7 @@ import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import java.io.BufferedReader
+import java.io.File
 import java.io.IOException
 import java.io.InputStreamReader
 
@@ -67,14 +68,22 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        // 3. Логика нажатия на кнопку
         btnProcess.setOnClickListener {
             if (!tvContent.getText().toString().isEmpty()) {
-                print("I am here")
-                val textAsString: String = tvContent.getText().toString()
-                val resultFromCpp = processTextNative(textAsString)
+                val sampleData = """
+                    Hellooooo from Android Kotlin and C++!
+                    This file was created using JNI.
+                    Timestamp: ${System.currentTimeMillis()}
+                    Multi-line content works perfectly!
+                """.trimIndent()
 
-                // В) Показываем результат
+                val textAsString: String = tvContent.getText().toString()
+                val encryped_file = File(filesDir, "encrypted.txt")
+                val unencrypted_file = File(filesDir, "unencrypted.txt")
+
+
+                var resultFromCpp = archiveAndSecure(sampleData, encryped_file.absolutePath)
+                resultFromCpp = unarchiveAndOpen(encryped_file.absolutePath)
                 tvResult.text = resultFromCpp
             } else {
                 tvResult.text = "строка пуста"
@@ -87,6 +96,10 @@ class MainActivity : AppCompatActivity() {
     }
 
     private external fun processTextNative(text: String): String
+    private external fun archiveAndSecure(text: String, save_to: String): String
+    private external fun unarchiveAndOpen(path_to: String): String
+
+
     // Вспомогательная функция для чтения файла из папки assets
     // (Для простоты используем assets, чтобы не возиться с разрешениями Android прямо сейчас)
     private fun readTextFromFile(fileName: String): String {

@@ -1,0 +1,50 @@
+  }
+
+  bool HaveCrashVFS = CrashInfo && !CrashInfo->VFSPath.empty();
+  for (size_t i = 0, e = Args.size(); i < e; ++i) {
+    const char *const Arg = Args[i];
+
+    if (CrashInfo) {
+      int NumArgs = 0;
+      bool IsInclude = false;
+      if (skipArgs(Arg, HaveCrashVFS, NumArgs, IsInclude)) {
+        i += NumArgs - 1;
+        continue;
+      }
+
+      // Relative includes need to be expanded to absolute paths.
+      if (HaveCrashVFS && IsInclude) {
+        SmallVector<SmallString<128>, 2> NewIncFlags;
+        rewriteIncludes(Args, i, NumArgs, NewIncFlags);
+        if (!NewIncFlags.empty()) {
+          for (auto &F : NewIncFlags) {
+            OS << ' ';
+            llvm::sys::printArg(OS, F.c_str(), Quote);
+          }
+          i += NumArgs - 1;
+          continue;
+        }
+      }
+
+      auto Found = llvm::find_if(InputInfoList, [&Arg](const InputInfo &II) {
+        return II.getFilename() == Arg;
+      });
+      if (Found != InputInfoList.end() &&
+          (i == 0 || StringRef(Args[i - 1]) != "-main-file-name")) {
+        // Replace the input file name with the crashinfo's file name.
+        OS << ' ';
+        StringRef ShortName = llvm::sys::path::filename(CrashInfo->Filename);
+        llvm::sys::printArg(OS, ShortName.str(), Quote);
+        continue;
+      }
+    }
+
+    OS << ' ';
+    llvm::sys::printArg(OS, Arg, Quote);
+  }
+
+  if (CrashInfo && HaveCrashVFS) {
+    OS << ' ';
+    llvm::sys::printArg(OS, "-ivfsoverlay", Quote);
+    OS << ' ';
+    llvm::sys::printArg(OS, CrashInfo->VFSPath.str(), Quote);

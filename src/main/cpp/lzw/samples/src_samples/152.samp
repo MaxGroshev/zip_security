@@ -1,0 +1,50 @@
+  // Some include flags shouldn't be skipped if we have a crash VFS
+  IsInclude = llvm::StringSwitch<bool>(Flag)
+    .Cases("-include", "-header-include-file", true)
+    .Cases("-idirafter", "-internal-isystem", "-iwithprefix", true)
+    .Cases("-internal-externc-isystem", "-iprefix", true)
+    .Cases("-iwithprefixbefore", "-isystem", "-iquote", true)
+    .Cases("-isysroot", "-I", "-F", "-resource-dir", true)
+    .Cases("-iframework", "-include-pch", true)
+    .Default(false);
+  if (IsInclude)
+    return !HaveCrashVFS;
+
+  // The remaining flags are treated as a single argument.
+
+  // These flags are all of the form -Flag and have no second argument.
+  ShouldSkip = llvm::StringSwitch<bool>(Flag)
+    .Cases("-M", "-MM", "-MG", "-MP", "-MD", true)
+    .Case("-MMD", true)
+    .Default(false);
+
+  // Match found.
+  SkipNum = 1;
+  if (ShouldSkip)
+    return true;
+
+  // These flags are treated as a single argument (e.g., -F<Dir>).
+  StringRef FlagRef(Flag);
+  IsInclude = FlagRef.starts_with("-F") || FlagRef.starts_with("-I");
+  if (IsInclude)
+    return !HaveCrashVFS;
+  if (FlagRef.starts_with("-fmodules-cache-path="))
+    return true;
+
+  SkipNum = 0;
+  return false;
+}
+
+void Command::writeResponseFile(raw_ostream &OS) const {
+  // In a file list, we only write the set of inputs to the response file
+  if (ResponseSupport.ResponseKind == ResponseFileSupport::RF_FileList) {
+    for (const auto *Arg : InputFileList) {
+      OS << Arg << '\n';
+    }
+    return;
+  }
+
+  // In regular response files, we send all arguments to the response file.
+  // Wrapping all arguments in double quotes ensures that both Unix tools and
+  // Windows tools understand the response file.
+  for (const auto *Arg : Arguments) {

@@ -1,0 +1,50 @@
+      return VisitObjCAtSynchronizedStmt(cast<ObjCAtSynchronizedStmt>(S));
+
+    case Stmt::ObjCAtThrowStmtClass:
+      return VisitObjCAtThrowStmt(cast<ObjCAtThrowStmt>(S));
+
+    case Stmt::ObjCAtTryStmtClass:
+      return VisitObjCAtTryStmt(cast<ObjCAtTryStmt>(S));
+
+    case Stmt::ObjCForCollectionStmtClass:
+      return VisitObjCForCollectionStmt(cast<ObjCForCollectionStmt>(S));
+
+    case Stmt::ObjCMessageExprClass:
+      return VisitObjCMessageExpr(cast<ObjCMessageExpr>(S), asc);
+
+    case Stmt::OpaqueValueExprClass:
+      return Block;
+
+    case Stmt::PseudoObjectExprClass:
+      return VisitPseudoObjectExpr(cast<PseudoObjectExpr>(S));
+
+    case Stmt::ReturnStmtClass:
+    case Stmt::CoreturnStmtClass:
+      return VisitReturnStmt(S);
+
+    case Stmt::CoyieldExprClass:
+    case Stmt::CoawaitExprClass:
+      return VisitCoroutineSuspendExpr(cast<CoroutineSuspendExpr>(S), asc);
+
+    case Stmt::SEHExceptStmtClass:
+      return VisitSEHExceptStmt(cast<SEHExceptStmt>(S));
+
+    case Stmt::SEHFinallyStmtClass:
+      return VisitSEHFinallyStmt(cast<SEHFinallyStmt>(S));
+
+    case Stmt::SEHLeaveStmtClass:
+      return VisitSEHLeaveStmt(cast<SEHLeaveStmt>(S));
+
+    case Stmt::SEHTryStmtClass:
+      return VisitSEHTryStmt(cast<SEHTryStmt>(S));
+
+    case Stmt::UnaryExprOrTypeTraitExprClass:
+      return VisitUnaryExprOrTypeTraitExpr(cast<UnaryExprOrTypeTraitExpr>(S),
+                                           asc);
+
+    case Stmt::StmtExprClass:
+      return VisitStmtExpr(cast<StmtExpr>(S), asc);
+
+    case Stmt::SwitchStmtClass:
+      return VisitSwitchStmt(cast<SwitchStmt>(S));
+

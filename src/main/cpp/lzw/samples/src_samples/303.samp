@@ -1,0 +1,50 @@
+}
+
+bool FunctionDecl::hasOneParamOrDefaultArgs() const {
+  return getNumParams() == 1 ||
+         (getNumParams() > 1 &&
+          llvm::all_of(llvm::drop_begin(parameters()),
+                       [](ParmVarDecl *P) { return P->hasDefaultArg(); }));
+}
+
+/// The combination of the extern and inline keywords under MSVC forces
+/// the function to be required.
+///
+/// Note: This function assumes that we will only get called when isInlined()
+/// would return true for this FunctionDecl.
+bool FunctionDecl::isMSExternInline() const {
+  assert(isInlined() && "expected to get called on an inlined function!");
+
+  const ASTContext &Context = getASTContext();
+  if (!Context.getTargetInfo().getCXXABI().isMicrosoft() &&
+      !hasAttr<DLLExportAttr>())
+    return false;
+
+  for (const FunctionDecl *FD = getMostRecentDecl(); FD;
+       FD = FD->getPreviousDecl())
+    if (!FD->isImplicit() && FD->getStorageClass() == SC_Extern)
+      return true;
+
+  return false;
+}
+
+static bool redeclForcesDefMSVC(const FunctionDecl *Redecl) {
+  if (Redecl->getStorageClass() != SC_Extern)
+    return false;
+
+  for (const FunctionDecl *FD = Redecl->getPreviousDecl(); FD;
+       FD = FD->getPreviousDecl())
+    if (!FD->isImplicit() && FD->getStorageClass() == SC_Extern)
+      return false;
+
+  return true;
+}
+
+static bool RedeclForcesDefC99(const FunctionDecl *Redecl) {
+  // Only consider file-scope declarations in this test.
+  if (!Redecl->getLexicalDeclContext()->isTranslationUnit())
+    return false;
+
+  // Only consider explicit declarations; the presence of a builtin for a
+  // libcall shouldn't affect whether a definition is externally visible.
+  if (Redecl->isImplicit())

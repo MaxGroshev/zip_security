@@ -1,0 +1,50 @@
+      break;
+    }
+  }
+  assert(!Old || Old->getCachedLinkage() == D->getCachedLinkage());
+#endif
+
+  return LV;
+}
+
+LinkageInfo LinkageComputer::getDeclLinkageAndVisibility(const NamedDecl *D) {
+  NamedDecl::ExplicitVisibilityKind EK = usesTypeVisibility(D)
+                                             ? NamedDecl::VisibilityForType
+                                             : NamedDecl::VisibilityForValue;
+  LVComputationKind CK(EK);
+  return getLVForDecl(D, D->getASTContext().getLangOpts().IgnoreXCOFFVisibility
+                             ? CK.forLinkageOnly()
+                             : CK);
+}
+
+Module *Decl::getOwningModuleForLinkage(bool IgnoreLinkage) const {
+  if (isa<NamespaceDecl>(this))
+    // Namespaces never have module linkage.  It is the entities within them
+    // that [may] do.
+    return nullptr;
+
+  Module *M = getOwningModule();
+  if (!M)
+    return nullptr;
+
+  switch (M->Kind) {
+  case Module::ModuleMapModule:
+    // Module map modules have no special linkage semantics.
+    return nullptr;
+
+  case Module::ModuleInterfaceUnit:
+  case Module::ModuleImplementationUnit:
+  case Module::ModulePartitionInterface:
+  case Module::ModulePartitionImplementation:
+    return M;
+
+  case Module::ModuleHeaderUnit:
+  case Module::ExplicitGlobalModuleFragment:
+  case Module::ImplicitGlobalModuleFragment: {
+    // External linkage declarations in the global module have no owning module
+    // for linkage purposes. But internal linkage declarations in the global
+    // module fragment of a particular module are owned by that module for
+    // linkage purposes.
+    // FIXME: p1815 removes the need for this distinction -- there are no
+    // internal linkage declarations that need to be referred to from outside
+    // this TU.

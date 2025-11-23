@@ -1,0 +1,50 @@
+
+  return false;
+}
+
+SourceRange FunctionDecl::getSourceRange() const {
+  return SourceRange(getOuterLocStart(), EndRangeLoc);
+}
+
+unsigned FunctionDecl::getMemoryFunctionKind() const {
+  IdentifierInfo *FnInfo = getIdentifier();
+
+  if (!FnInfo)
+    return 0;
+
+  // Builtin handling.
+  switch (getBuiltinID()) {
+  case Builtin::BI__builtin_memset:
+  case Builtin::BI__builtin___memset_chk:
+  case Builtin::BImemset:
+    return Builtin::BImemset;
+
+  case Builtin::BI__builtin_memcpy:
+  case Builtin::BI__builtin___memcpy_chk:
+  case Builtin::BImemcpy:
+    return Builtin::BImemcpy;
+
+  case Builtin::BI__builtin_mempcpy:
+  case Builtin::BI__builtin___mempcpy_chk:
+  case Builtin::BImempcpy:
+    return Builtin::BImempcpy;
+
+  case Builtin::BI__builtin_memmove:
+  case Builtin::BI__builtin___memmove_chk:
+  case Builtin::BImemmove:
+    return Builtin::BImemmove;
+
+  case Builtin::BIstrlcpy:
+  case Builtin::BI__builtin___strlcpy_chk:
+    return Builtin::BIstrlcpy;
+
+  case Builtin::BIstrlcat:
+  case Builtin::BI__builtin___strlcat_chk:
+    return Builtin::BIstrlcat;
+
+  case Builtin::BI__builtin_memcmp:
+  case Builtin::BImemcmp:
+    return Builtin::BImemcmp;
+
+  case Builtin::BI__builtin_bcmp:
+  case Builtin::BIbcmp:

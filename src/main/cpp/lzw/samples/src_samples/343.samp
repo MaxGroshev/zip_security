@@ -1,0 +1,6 @@
+  return new (C, DC) ExportDecl(DC, ExportLoc);
+}
+
+ExportDecl *ExportDecl::CreateDeserialized(ASTContext &C, unsigned ID) {
+  return new (C, ID) ExportDecl(nullptr, SourceLocation());
+}

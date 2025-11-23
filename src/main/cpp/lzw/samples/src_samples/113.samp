@@ -1,0 +1,50 @@
+  else if (I->isDelegatingInitializer())
+    OS << I->getTypeSourceInfo()->getType()->getAsCXXRecordDecl()->getName();
+  else
+    OS << I->getAnyMember()->getName();
+  OS << "(";
+  if (Expr *IE = I->getInit())
+    IE->printPretty(OS, &Helper, PrintingPolicy(Helper.getLangOpts()));
+  OS << ")";
+
+  if (I->isBaseInitializer())
+    OS << " (Base initializer)";
+  else if (I->isDelegatingInitializer())
+    OS << " (Delegating initializer)";
+  else
+    OS << " (Member initializer)";
+}
+
+static void print_construction_context(raw_ostream &OS,
+                                       StmtPrinterHelper &Helper,
+                                       const ConstructionContext *CC) {
+  SmallVector<const Stmt *, 3> Stmts;
+  switch (CC->getKind()) {
+  case ConstructionContext::SimpleConstructorInitializerKind: {
+    OS << ", ";
+    const auto *SICC = cast<SimpleConstructorInitializerConstructionContext>(CC);
+    print_initializer(OS, Helper, SICC->getCXXCtorInitializer());
+    return;
+  }
+  case ConstructionContext::CXX17ElidedCopyConstructorInitializerKind: {
+    OS << ", ";
+    const auto *CICC =
+        cast<CXX17ElidedCopyConstructorInitializerConstructionContext>(CC);
+    print_initializer(OS, Helper, CICC->getCXXCtorInitializer());
+    Stmts.push_back(CICC->getCXXBindTemporaryExpr());
+    break;
+  }
+  case ConstructionContext::SimpleVariableKind: {
+    const auto *SDSCC = cast<SimpleVariableConstructionContext>(CC);
+    Stmts.push_back(SDSCC->getDeclStmt());
+    break;
+  }
+  case ConstructionContext::CXX17ElidedCopyVariableKind: {
+    const auto *CDSCC = cast<CXX17ElidedCopyVariableConstructionContext>(CC);
+    Stmts.push_back(CDSCC->getDeclStmt());
+    Stmts.push_back(CDSCC->getCXXBindTemporaryExpr());
+    break;
+  }
+  case ConstructionContext::NewAllocatedObjectKind: {
+    const auto *NECC = cast<NewAllocatedObjectConstructionContext>(CC);
+    Stmts.push_back(NECC->getCXXNewExpr());

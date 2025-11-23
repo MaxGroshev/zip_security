@@ -1,0 +1,50 @@
+
+    if (Stmt *I = F->getInc()) {
+      // Generate increment code in its own basic block.  This is the target of
+      // continue statements.
+      Succ = addStmt(I);
+    }
+
+    // Finish up the increment (or empty) block if it hasn't been already.
+    if (Block) {
+      assert(Block == Succ);
+      if (badCFG)
+        return nullptr;
+      Block = nullptr;
+    }
+
+   // The starting block for the loop increment is the block that should
+   // represent the 'loop target' for looping back to the start of the loop.
+   ContinueJumpTarget = JumpTarget(Succ, ContinueScopePos);
+   ContinueJumpTarget.block->setLoopTarget(F);
+
+
+    // If body is not a compound statement create implicit scope
+    // and add destructors.
+    if (!isa<CompoundStmt>(F->getBody()))
+      addLocalScopeAndDtors(F->getBody());
+
+    // Now populate the body block, and in the process create new blocks as we
+    // walk the body of the loop.
+    BodyBlock = addStmt(F->getBody());
+
+    if (!BodyBlock) {
+      // In the case of "for (...;...;...);" we can have a null BodyBlock.
+      // Use the continue jump target as the proxy for the body.
+      BodyBlock = ContinueJumpTarget.block;
+    }
+    else if (badCFG)
+      return nullptr;
+  }
+
+  // Because of short-circuit evaluation, the condition of the loop can span
+  // multiple basic blocks.  Thus we need the "Entry" and "Exit" blocks that
+  // evaluate the condition.
+  CFGBlock *EntryConditionBlock = nullptr, *ExitConditionBlock = nullptr;
+
+  do {
+    Expr *C = F->getCond();
+    SaveAndRestore save_scope_pos(ScopePos);
+
+    // Specially handle logical operators, which have a slightly
+    // more optimal CFG representation.

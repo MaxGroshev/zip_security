@@ -1,0 +1,50 @@
+
+  // Merge information from the template parameters.
+  LinkageInfo paramsLV =
+      getLVForTemplateParameterList(temp->getTemplateParameters(), computation);
+  LV.mergeMaybeWithVisibility(paramsLV, considerVisibility);
+
+  // Merge information from the template arguments.
+  const TemplateArgumentList &templateArgs = *specInfo->TemplateArguments;
+  LinkageInfo argsLV = getLVForTemplateArgumentList(templateArgs, computation);
+  LV.mergeMaybeWithVisibility(argsLV, considerVisibility);
+}
+
+/// Does the given declaration have a direct visibility attribute
+/// that would match the given rules?
+static bool hasDirectVisibilityAttribute(const NamedDecl *D,
+                                         LVComputationKind computation) {
+  if (computation.IgnoreAllVisibility)
+    return false;
+
+  return (computation.isTypeVisibility() && D->hasAttr<TypeVisibilityAttr>()) ||
+         D->hasAttr<VisibilityAttr>();
+}
+
+/// Should we consider visibility associated with the template
+/// arguments and parameters of the given class template specialization?
+static bool shouldConsiderTemplateVisibility(
+                                 const ClassTemplateSpecializationDecl *spec,
+                                 LVComputationKind computation) {
+  // Include visibility from the template parameters and arguments
+  // only if this is not an explicit instantiation or specialization
+  // with direct explicit visibility (and note that implicit
+  // instantiations won't have a direct attribute).
+  //
+  // Furthermore, we want to ignore template parameters and arguments
+  // for an explicit specialization when computing the visibility of a
+  // member thereof with explicit visibility.
+  //
+  // This is a bit complex; let's unpack it.
+  //
+  // An explicit class specialization is an independent, top-level
+  // declaration.  As such, if it or any of its members has an
+  // explicit visibility attribute, that must directly express the
+  // user's intent, and we should honor it.  The same logic applies to
+  // an explicit instantiation of a member of such a thing.
+
+  // Fast path: if this is not an explicit instantiation or
+  // specialization, we always want to consider template-related
+  // visibility restrictions.
+  if (!spec->isExplicitInstantiationOrSpecialization())
+    return true;

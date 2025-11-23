@@ -1,0 +1,50 @@
+    addSuccessor(NewTryTerminatedBlock, CatchBlock);
+  }
+  if (!HasCatchAll) {
+    if (PrevTryTerminatedBlock)
+      addSuccessor(NewTryTerminatedBlock, PrevTryTerminatedBlock);
+    else
+      addSuccessor(NewTryTerminatedBlock, &cfg->getExit());
+  }
+
+  // The code after the try is the implicit successor.
+  Succ = TrySuccessor;
+
+  // Save the current "try" context.
+  SaveAndRestore SaveTry(TryTerminatedBlock, NewTryTerminatedBlock);
+  cfg->addTryDispatchBlock(TryTerminatedBlock);
+
+  assert(Terminator->getTryBlock() && "try must contain a non-NULL body");
+  Block = nullptr;
+  return addStmt(Terminator->getTryBlock());
+}
+
+CFGBlock *CFGBuilder::VisitCXXCatchStmt(CXXCatchStmt *CS) {
+  // CXXCatchStmt are treated like labels, so they are the first statement in a
+  // block.
+
+  // Save local scope position because in case of exception variable ScopePos
+  // won't be restored when traversing AST.
+  SaveAndRestore save_scope_pos(ScopePos);
+
+  // Create local scope for possible exception variable.
+  // Store scope position. Add implicit destructor.
+  if (VarDecl *VD = CS->getExceptionDecl()) {
+    LocalScope::const_iterator BeginScopePos = ScopePos;
+    addLocalScopeForVarDecl(VD);
+    addAutomaticObjHandling(ScopePos, BeginScopePos, CS);
+  }
+
+  if (CS->getHandlerBlock())
+    addStmt(CS->getHandlerBlock());
+
+  CFGBlock *CatchBlock = Block;
+  if (!CatchBlock)
+    CatchBlock = createBlock();
+
+  // CXXCatchStmt is more than just a label.  They have semantic meaning
+  // as well, as they implicitly "initialize" the catch variable.  Add
+  // it to the CFG as a CFGElement so that the control-flow of these
+  // semantics gets captured.
+  appendStmt(CatchBlock, CS);
+

@@ -1,0 +1,50 @@
+
+  // This is the 'member thereof' check.
+  if (spec->isExplicitSpecialization() &&
+      hasExplicitVisibilityAlready(computation))
+    return false;
+
+  return !hasDirectVisibilityAttribute(spec, computation);
+}
+
+/// Merge in template-related linkage and visibility for the given
+/// class template specialization.
+void LinkageComputer::mergeTemplateLV(
+    LinkageInfo &LV, const ClassTemplateSpecializationDecl *spec,
+    LVComputationKind computation) {
+  bool considerVisibility = shouldConsiderTemplateVisibility(spec, computation);
+
+  // Merge information from the template parameters, but ignore
+  // visibility if we're only considering template arguments.
+  ClassTemplateDecl *temp = spec->getSpecializedTemplate();
+  // Merge information from the template declaration.
+  LinkageInfo tempLV = getLVForDecl(temp, computation);
+  // The linkage of the specialization should be consistent with the
+  // template declaration.
+  LV.setLinkage(tempLV.getLinkage());
+
+  LinkageInfo paramsLV =
+    getLVForTemplateParameterList(temp->getTemplateParameters(), computation);
+  LV.mergeMaybeWithVisibility(paramsLV,
+           considerVisibility && !hasExplicitVisibilityAlready(computation));
+
+  // Merge information from the template arguments.  We ignore
+  // template-argument visibility if we've got an explicit
+  // instantiation with a visibility attribute.
+  const TemplateArgumentList &templateArgs = spec->getTemplateArgs();
+  LinkageInfo argsLV = getLVForTemplateArgumentList(templateArgs, computation);
+  if (considerVisibility)
+    LV.mergeVisibility(argsLV);
+  LV.mergeExternalVisibility(argsLV);
+}
+
+/// Should we consider visibility associated with the template
+/// arguments and parameters of the given variable template
+/// specialization? As usual, follow class template specialization
+/// logic up to initialization.
+static bool shouldConsiderTemplateVisibility(
+                                 const VarTemplateSpecializationDecl *spec,
+                                 LVComputationKind computation) {
+  // Include visibility from the template parameters and arguments
+  // only if this is not an explicit instantiation or specialization
+  // with direct explicit visibility (and note that implicit

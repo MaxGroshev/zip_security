@@ -1,0 +1,50 @@
+    writer.write<uint8_t>(Flags);
+
+    if (auto ImportAs = TI.SwiftImportAs) {
+      writer.write<uint16_t>(ImportAs->size() + 1);
+      OS.write(ImportAs->c_str(), ImportAs->size());
+    } else {
+      writer.write<uint16_t>(0);
+    }
+    if (auto RetainOp = TI.SwiftRetainOp) {
+      writer.write<uint16_t>(RetainOp->size() + 1);
+      OS.write(RetainOp->c_str(), RetainOp->size());
+    } else {
+      writer.write<uint16_t>(0);
+    }
+    if (auto ReleaseOp = TI.SwiftReleaseOp) {
+      writer.write<uint16_t>(ReleaseOp->size() + 1);
+      OS.write(ReleaseOp->c_str(), ReleaseOp->size());
+    } else {
+      writer.write<uint16_t>(0);
+    }
+
+    emitCommonTypeInfo(OS, TI);
+  }
+};
+} // namespace
+
+void APINotesWriter::Implementation::writeTagBlock(
+    llvm::BitstreamWriter &Stream) {
+  llvm::BCBlockRAII Scope(Stream, TAG_BLOCK_ID, 3);
+
+  if (Tags.empty())
+    return;
+
+  {
+    llvm::SmallString<4096> HashTableBlob;
+    uint32_t Offset;
+    {
+      llvm::OnDiskChainedHashTableGenerator<TagTableInfo> Generator;
+      for (auto &T : Tags)
+        Generator.insert(T.first, T.second);
+
+      llvm::raw_svector_ostream BlobStream(HashTableBlob);
+      // Make sure that no bucket is at offset 0
+      llvm::support::endian::write<uint32_t>(BlobStream, 0,
+                                             llvm::endianness::little);
+      Offset = Generator.Emit(BlobStream);
+    }
+
+    tag_block::TagDataLayout TagData(Stream);
+    TagData.emit(Scratch, Offset, HashTableBlob);

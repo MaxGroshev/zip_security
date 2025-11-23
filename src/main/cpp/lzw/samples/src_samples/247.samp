@@ -1,0 +1,50 @@
+
+LinkageInfo
+LinkageComputer::getLVForClassMember(const NamedDecl *D,
+                                     LVComputationKind computation,
+                                     bool IgnoreVarTypeLinkage) {
+  // Only certain class members have linkage.  Note that fields don't
+  // really have linkage, but it's convenient to say they do for the
+  // purposes of calculating linkage of pointer-to-data-member
+  // template arguments.
+  //
+  // Templates also don't officially have linkage, but since we ignore
+  // the C++ standard and look at template arguments when determining
+  // linkage and visibility of a template specialization, we might hit
+  // a template template argument that way. If we do, we need to
+  // consider its linkage.
+  if (!(isa<CXXMethodDecl>(D) ||
+        isa<VarDecl>(D) ||
+        isa<FieldDecl>(D) ||
+        isa<IndirectFieldDecl>(D) ||
+        isa<TagDecl>(D) ||
+        isa<TemplateDecl>(D)))
+    return LinkageInfo::none();
+
+  LinkageInfo LV;
+
+  // If we have an explicit visibility attribute, merge that in.
+  if (!hasExplicitVisibilityAlready(computation)) {
+    if (std::optional<Visibility> Vis = getExplicitVisibility(D, computation))
+      LV.mergeVisibility(*Vis, true);
+    // If we're paying attention to global visibility, apply
+    // -finline-visibility-hidden if this is an inline method.
+    //
+    // Note that we do this before merging information about
+    // the class visibility.
+    if (!LV.isVisibilityExplicit() && useInlineVisibilityHidden(D))
+      LV.mergeVisibility(HiddenVisibility, /*visibilityExplicit=*/false);
+  }
+
+  // If this class member has an explicit visibility attribute, the only
+  // thing that can change its visibility is the template arguments, so
+  // only look for them when processing the class.
+  LVComputationKind classComputation = computation;
+  if (LV.isVisibilityExplicit())
+    classComputation = withExplicitVisibilityAlready(computation);
+
+  LinkageInfo classLV =
+    getLVForDecl(cast<RecordDecl>(D->getDeclContext()), classComputation);
+  // The member has the same linkage as the class. If that's not externally
+  // visible, we don't need to compute anything about the linkage.
+  // FIXME: If we're only computing linkage, can we bail out here?

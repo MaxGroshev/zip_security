@@ -1,0 +1,50 @@
+/// constant expression or EnumConstantDecl from the given Expr. If it fails,
+/// returns nullptr.
+static const Expr *tryTransformToIntOrEnumConstant(const Expr *E) {
+  E = E->IgnoreParens();
+  if (IsIntegerLiteralConstantExpr(E))
+    return E;
+  if (auto *DR = dyn_cast<DeclRefExpr>(E->IgnoreParenImpCasts()))
+    return isa<EnumConstantDecl>(DR->getDecl()) ? DR : nullptr;
+  return nullptr;
+}
+
+/// Tries to interpret a binary operator into `Expr Op NumExpr` form, if
+/// NumExpr is an integer literal or an enum constant.
+///
+/// If this fails, at least one of the returned DeclRefExpr or Expr will be
+/// null.
+static std::tuple<const Expr *, BinaryOperatorKind, const Expr *>
+tryNormalizeBinaryOperator(const BinaryOperator *B) {
+  BinaryOperatorKind Op = B->getOpcode();
+
+  const Expr *MaybeDecl = B->getLHS();
+  const Expr *Constant = tryTransformToIntOrEnumConstant(B->getRHS());
+  // Expr looked like `0 == Foo` instead of `Foo == 0`
+  if (Constant == nullptr) {
+    // Flip the operator
+    if (Op == BO_GT)
+      Op = BO_LT;
+    else if (Op == BO_GE)
+      Op = BO_LE;
+    else if (Op == BO_LT)
+      Op = BO_GT;
+    else if (Op == BO_LE)
+      Op = BO_GE;
+
+    MaybeDecl = B->getRHS();
+    Constant = tryTransformToIntOrEnumConstant(B->getLHS());
+  }
+
+  return std::make_tuple(MaybeDecl, Op, Constant);
+}
+
+/// For an expression `x == Foo && x == Bar`, this determines whether the
+/// `Foo` and `Bar` are either of the same enumeration type, or both integer
+/// literals.
+///
+/// It's an error to pass this arguments that are not either IntegerLiterals
+/// or DeclRefExprs (that have decls of type EnumConstantDecl)
+static bool areExprTypesCompatible(const Expr *E1, const Expr *E2) {
+  // User intent isn't clear if they're mixing int literals with enum
+  // constants.

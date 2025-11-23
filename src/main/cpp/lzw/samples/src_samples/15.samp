@@ -1,0 +1,50 @@
+            ConstructionContextLayer::create(cfg->getBumpVectorContext(),
+                                             ConstructionContextItem(E, i)),
+            Arg);
+    }
+  }
+
+  // Unset the construction context after consuming it. This is done immediately
+  // after adding the CFGConstructor or CFGCXXRecordTypedCall element, so
+  // there's no need to do this manually in every Visit... function.
+  void cleanupConstructionContext(Expr *E);
+
+  void autoCreateBlock() { if (!Block) Block = createBlock(); }
+  CFGBlock *createBlock(bool add_successor = true);
+  CFGBlock *createNoReturnBlock();
+
+  CFGBlock *addStmt(Stmt *S) {
+    return Visit(S, AddStmtChoice::AlwaysAdd);
+  }
+
+  CFGBlock *addInitializer(CXXCtorInitializer *I);
+  void addLoopExit(const Stmt *LoopStmt);
+  void addAutomaticObjHandling(LocalScope::const_iterator B,
+                               LocalScope::const_iterator E, Stmt *S);
+  void addAutomaticObjDestruction(LocalScope::const_iterator B,
+                                  LocalScope::const_iterator E, Stmt *S);
+  void addScopeExitHandling(LocalScope::const_iterator B,
+                            LocalScope::const_iterator E, Stmt *S);
+  void addImplicitDtorsForDestructor(const CXXDestructorDecl *DD);
+  void addScopeChangesHandling(LocalScope::const_iterator SrcPos,
+                               LocalScope::const_iterator DstPos,
+                               Stmt *S);
+  CFGBlock *createScopeChangesHandlingBlock(LocalScope::const_iterator SrcPos,
+                                            CFGBlock *SrcBlk,
+                                            LocalScope::const_iterator DstPost,
+                                            CFGBlock *DstBlk);
+
+  // Local scopes creation.
+  LocalScope* createOrReuseLocalScope(LocalScope* Scope);
+
+  void addLocalScopeForStmt(Stmt *S);
+  LocalScope* addLocalScopeForDeclStmt(DeclStmt *DS,
+                                       LocalScope* Scope = nullptr);
+  LocalScope* addLocalScopeForVarDecl(VarDecl *VD, LocalScope* Scope = nullptr);
+
+  void addLocalScopeAndDtors(Stmt *S);
+
+  const ConstructionContext *retrieveAndCleanupConstructionContext(Expr *E) {
+    if (!BuildOpts.AddRichCXXConstructors)
+      return nullptr;
+

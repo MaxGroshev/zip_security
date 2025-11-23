@@ -1,0 +1,50 @@
+CFGBlock *CFGBuilder::VisitGotoStmt(GotoStmt *G) {
+  // Goto is a control-flow statement.  Thus we stop processing the current
+  // block and create a new one.
+
+  Block = createBlock(false);
+  Block->setTerminator(G);
+
+  // If we already know the mapping to the label block add the successor now.
+  LabelMapTy::iterator I = LabelMap.find(G->getLabel());
+
+  if (I == LabelMap.end())
+    // We will need to backpatch this block later.
+    BackpatchBlocks.push_back(JumpSource(Block, ScopePos));
+  else {
+    JumpTarget JT = I->second;
+    addSuccessor(Block, JT.block);
+    addScopeChangesHandling(ScopePos, JT.scopePosition, G);
+  }
+
+  return Block;
+}
+
+CFGBlock *CFGBuilder::VisitGCCAsmStmt(GCCAsmStmt *G, AddStmtChoice asc) {
+  // Goto is a control-flow statement.  Thus we stop processing the current
+  // block and create a new one.
+
+  if (!G->isAsmGoto())
+    return VisitStmt(G, asc);
+
+  if (Block) {
+    Succ = Block;
+    if (badCFG)
+      return nullptr;
+  }
+  Block = createBlock();
+  Block->setTerminator(G);
+  // We will backpatch this block later for all the labels.
+  BackpatchBlocks.push_back(JumpSource(Block, ScopePos));
+  // Save "Succ" in BackpatchBlocks. In the backpatch processing, "Succ" is
+  // used to avoid adding "Succ" again.
+  BackpatchBlocks.push_back(JumpSource(Succ, ScopePos));
+  return VisitChildren(G);
+}
+
+CFGBlock *CFGBuilder::VisitForStmt(ForStmt *F) {
+  CFGBlock *LoopSuccessor = nullptr;
+
+  // Save local scope position because in case of condition variable ScopePos
+  // won't be restored when traversing AST.
+  SaveAndRestore save_scope_pos(ScopePos);

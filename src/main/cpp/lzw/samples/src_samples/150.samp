@@ -1,0 +1,50 @@
+  if (!Result.Locations.empty()) {
+    json::Array Locs;
+    for (auto &Range : Result.Locations) {
+      Locs.emplace_back(createLocation(createPhysicalLocation(Range)));
+    }
+    Ret["locations"] = std::move(Locs);
+  }
+  if (!Result.ThreadFlows.empty())
+    Ret["codeFlows"] = json::Array{createCodeFlow(Result.ThreadFlows)};
+
+  Ret["level"] = resultLevelToStr(
+      Result.LevelOverride.value_or(Rule.DefaultConfiguration.Level));
+
+  json::Object &Run = getCurrentRun();
+  json::Array *Results = Run.getArray("results");
+  Results->emplace_back(std::move(Ret));
+}
+
+json::Object SarifDocumentWriter::createDocument() {
+  // Flush all temporaries to their destinations if needed.
+  endRun();
+
+  json::Object Doc{
+      {"$schema", SchemaURI},
+      {"version", SchemaVersion},
+  };
+  if (!Runs.empty())
+    Doc["runs"] = json::Array(Runs);
+  return Doc;
+}
+//===- Job.cpp - Command to Execute ---------------------------------------===//
+//
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+//
+//===----------------------------------------------------------------------===//
+
+#include "clang/Driver/Job.h"
+#include "clang/Basic/LLVM.h"
+#include "clang/Driver/Driver.h"
+#include "clang/Driver/DriverDiagnostic.h"
+#include "clang/Driver/InputInfo.h"
+#include "clang/Driver/Tool.h"
+#include "clang/Driver/ToolChain.h"
+#include "llvm/ADT/ArrayRef.h"
+#include "llvm/ADT/SmallString.h"
+#include "llvm/ADT/SmallVector.h"
+#include "llvm/ADT/StringExtras.h"
+#include "llvm/ADT/StringRef.h"

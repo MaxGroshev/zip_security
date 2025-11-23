@@ -1,0 +1,50 @@
+
+  return nullptr;
+}
+
+void EnumDecl::setInstantiationOfMemberEnum(ASTContext &C, EnumDecl *ED,
+                                            TemplateSpecializationKind TSK) {
+  assert(!SpecializationInfo && "Member enum is already a specialization");
+  SpecializationInfo = new (C) MemberSpecializationInfo(ED, TSK);
+}
+
+unsigned EnumDecl::getODRHash() {
+  if (hasODRHash())
+    return ODRHash;
+
+  class ODRHash Hash;
+  Hash.AddEnumDecl(this);
+  setHasODRHash(true);
+  ODRHash = Hash.CalculateHash();
+  return ODRHash;
+}
+
+SourceRange EnumDecl::getSourceRange() const {
+  auto Res = TagDecl::getSourceRange();
+  // Set end-point to enum-base, e.g. enum foo : ^bar
+  if (auto *TSI = getIntegerTypeSourceInfo()) {
+    // TagDecl doesn't know about the enum base.
+    if (!getBraceRange().getEnd().isValid())
+      Res.setEnd(TSI->getTypeLoc().getEndLoc());
+  }
+  return Res;
+}
+
+void EnumDecl::getValueRange(llvm::APInt &Max, llvm::APInt &Min) const {
+  unsigned Bitwidth = getASTContext().getIntWidth(getIntegerType());
+  unsigned NumNegativeBits = getNumNegativeBits();
+  unsigned NumPositiveBits = getNumPositiveBits();
+
+  if (NumNegativeBits) {
+    unsigned NumBits = std::max(NumNegativeBits, NumPositiveBits + 1);
+    Max = llvm::APInt(Bitwidth, 1) << (NumBits - 1);
+    Min = -Max;
+  } else {
+    Max = llvm::APInt(Bitwidth, 1) << NumPositiveBits;
+    Min = llvm::APInt::getZero(Bitwidth);
+  }
+}
+
+//===----------------------------------------------------------------------===//
+// RecordDecl Implementation
+//===----------------------------------------------------------------------===//

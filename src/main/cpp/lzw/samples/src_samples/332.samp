@@ -1,0 +1,50 @@
+    if (const auto *RT = I->getType()->getAs<RecordType>())
+      if (const FieldDecl *NamedDataMember =
+              RT->getDecl()->findFirstNamedDataMember())
+        return NamedDataMember;
+  }
+
+  // We didn't find a named data member.
+  return nullptr;
+}
+
+unsigned RecordDecl::getODRHash() {
+  if (hasODRHash())
+    return RecordDeclBits.ODRHash;
+
+  // Only calculate hash on first call of getODRHash per record.
+  ODRHash Hash;
+  Hash.AddRecordDecl(this);
+  // For RecordDecl the ODRHash is stored in the remaining 26
+  // bit of RecordDeclBits, adjust the hash to accomodate.
+  setODRHash(Hash.CalculateHash() >> 6);
+  return RecordDeclBits.ODRHash;
+}
+
+//===----------------------------------------------------------------------===//
+// BlockDecl Implementation
+//===----------------------------------------------------------------------===//
+
+BlockDecl::BlockDecl(DeclContext *DC, SourceLocation CaretLoc)
+    : Decl(Block, DC, CaretLoc), DeclContext(Block) {
+  setIsVariadic(false);
+  setCapturesCXXThis(false);
+  setBlockMissingReturnType(true);
+  setIsConversionFromLambda(false);
+  setDoesNotEscape(false);
+  setCanAvoidCopyToHeap(false);
+}
+
+void BlockDecl::setParams(ArrayRef<ParmVarDecl *> NewParamInfo) {
+  assert(!ParamInfo && "Already has param info!");
+
+  // Zero params -> null pointer.
+  if (!NewParamInfo.empty()) {
+    NumParams = NewParamInfo.size();
+    ParamInfo = new (getASTContext()) ParmVarDecl*[NewParamInfo.size()];
+    std::copy(NewParamInfo.begin(), NewParamInfo.end(), ParamInfo);
+  }
+}
+
+void BlockDecl::setCaptures(ASTContext &Context, ArrayRef<Capture> Captures,
+                            bool CapturesCXXThis) {

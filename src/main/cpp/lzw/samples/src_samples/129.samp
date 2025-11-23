@@ -1,0 +1,50 @@
+
+  SmallString<128> PlatformEnv = Target.getTriple().getOSAndEnvironmentName();
+  // Darwin has different but equivalent variants for simulators, example:
+  //   1. x86_64-apple-ios-simulator
+  //   2. x86_64-apple-iossimulator
+  // where both are valid examples of the same platform+environment but in the
+  // variant (2) the simulator is hardcoded as part of the platform name. Both
+  // forms above should match for "iossimulator" requirement.
+  if (Target.getTriple().isOSDarwin() && PlatformEnv.ends_with("simulator"))
+    return PlatformEnv == Feature || CmpPlatformEnv(PlatformEnv, Feature);
+
+  return PlatformEnv == Feature;
+}
+
+/// Determine whether a translation unit built using the current
+/// language options has the given feature.
+static bool hasFeature(StringRef Feature, const LangOptions &LangOpts,
+                       const TargetInfo &Target) {
+  bool HasFeature = llvm::StringSwitch<bool>(Feature)
+                        .Case("altivec", LangOpts.AltiVec)
+                        .Case("blocks", LangOpts.Blocks)
+                        .Case("coroutines", LangOpts.Coroutines)
+                        .Case("cplusplus", LangOpts.CPlusPlus)
+                        .Case("cplusplus11", LangOpts.CPlusPlus11)
+                        .Case("cplusplus14", LangOpts.CPlusPlus14)
+                        .Case("cplusplus17", LangOpts.CPlusPlus17)
+                        .Case("cplusplus20", LangOpts.CPlusPlus20)
+                        .Case("cplusplus23", LangOpts.CPlusPlus23)
+                        .Case("cplusplus26", LangOpts.CPlusPlus26)
+                        .Case("c99", LangOpts.C99)
+                        .Case("c11", LangOpts.C11)
+                        .Case("c17", LangOpts.C17)
+                        .Case("c23", LangOpts.C23)
+                        .Case("freestanding", LangOpts.Freestanding)
+                        .Case("gnuinlineasm", LangOpts.GNUAsm)
+                        .Case("objc", LangOpts.ObjC)
+                        .Case("objc_arc", LangOpts.ObjCAutoRefCount)
+                        .Case("opencl", LangOpts.OpenCL)
+                        .Case("tls", Target.isTLSSupported())
+                        .Case("zvector", LangOpts.ZVector)
+                        .Default(Target.hasFeature(Feature) ||
+                                 isPlatformEnvironment(Target, Feature));
+  if (!HasFeature)
+    HasFeature = llvm::is_contained(LangOpts.ModuleFeatures, Feature);
+  return HasFeature;
+}
+
+bool Module::isUnimportable(const LangOptions &LangOpts,
+                            const TargetInfo &Target, Requirement &Req,
+                            Module *&ShadowingModule) const {

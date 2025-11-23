@@ -1,0 +1,50 @@
+  Argv.push_back(getExecutable());
+  Argv.append(getArguments().begin(), getArguments().end());
+  Argv.push_back(nullptr);
+  Argv.pop_back(); // The terminating null element shall not be part of the
+                   // slice (main() behavior).
+
+  // This flag simply indicates that the program couldn't start, which isn't
+  // applicable here.
+  if (ExecutionFailed)
+    *ExecutionFailed = false;
+
+  llvm::CrashRecoveryContext CRC;
+  CRC.DumpStackAndCleanupOnFailure = true;
+
+  const void *PrettyState = llvm::SavePrettyStackState();
+  const Driver &D = getCreator().getToolChain().getDriver();
+
+  int R = 0;
+  // Enter ExecuteCC1Tool() instead of starting up a new process
+  if (!CRC.RunSafely([&]() { R = D.CC1Main(Argv); })) {
+    llvm::RestorePrettyStackState(PrettyState);
+    return CRC.RetCode;
+  }
+  return R;
+}
+
+void CC1Command::setEnvironment(llvm::ArrayRef<const char *> NewEnvironment) {
+  // We don't support set a new environment when calling into ExecuteCC1Tool()
+  llvm_unreachable(
+      "The CC1Command doesn't support changing the environment vars!");
+}
+
+void JobList::Print(raw_ostream &OS, const char *Terminator, bool Quote,
+                    CrashReportInfo *CrashInfo) const {
+  for (const auto &Job : *this)
+    Job.Print(OS, Terminator, Quote, CrashInfo);
+}
+
+void JobList::clear() { Jobs.clear(); }
+
+//===--- Macros.h - Format C++ code -----------------------------*- C++ -*-===//
+//
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+//
+//===----------------------------------------------------------------------===//
+///
+/// \file
+/// This file contains the main building blocks of macro support in

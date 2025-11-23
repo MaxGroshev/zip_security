@@ -1,0 +1,50 @@
+  CFGBlock *EntryConditionBlock = Visit(S->getElement(),
+                                        AddStmtChoice::NotAlwaysAdd);
+  if (Block) {
+    if (badCFG)
+      return nullptr;
+    Block = nullptr;
+  }
+
+  // The condition block is the implicit successor for the loop body as well as
+  // any code above the loop.
+  Succ = EntryConditionBlock;
+
+  // Now create the true branch.
+  {
+    // Save the current values for Succ, continue and break targets.
+    SaveAndRestore save_Block(Block), save_Succ(Succ);
+    SaveAndRestore save_continue(ContinueJumpTarget),
+        save_break(BreakJumpTarget);
+
+    // Add an intermediate block between the BodyBlock and the
+    // EntryConditionBlock to represent the "loop back" transition, for looping
+    // back to the head of the loop.
+    CFGBlock *LoopBackBlock = nullptr;
+    Succ = LoopBackBlock = createBlock();
+    LoopBackBlock->setLoopTarget(S);
+
+    BreakJumpTarget = JumpTarget(LoopSuccessor, ScopePos);
+    ContinueJumpTarget = JumpTarget(Succ, ScopePos);
+
+    CFGBlock *BodyBlock = addStmt(S->getBody());
+
+    if (!BodyBlock)
+      BodyBlock = ContinueJumpTarget.block; // can happen for "for (X in Y) ;"
+    else if (Block) {
+      if (badCFG)
+        return nullptr;
+    }
+
+    // This new body block is a successor to our "exit" condition block.
+    addSuccessor(ExitConditionBlock, BodyBlock);
+  }
+
+  // Link up the condition block with the code that follows the loop.
+  // (the false branch).
+  addSuccessor(ExitConditionBlock, LoopSuccessor);
+
+  // Now create a prologue block to contain the collection expression.
+  Block = createBlock();
+  return addStmt(S->getCollection());
+}

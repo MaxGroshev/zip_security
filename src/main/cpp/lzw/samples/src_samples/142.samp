@@ -1,0 +1,50 @@
+  if (ClangModule)
+    return ClangModule->Name;
+  else
+    return std::string(PCHModuleName);
+}
+
+//===-- clang/Basic/Sarif.cpp - SarifDocumentWriter class definition ------===//
+//
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+//
+//===----------------------------------------------------------------------===//
+///
+/// \file
+/// This file contains the declaration of the SARIFDocumentWriter class, and
+/// associated builders such as:
+/// - \ref SarifArtifact
+/// - \ref SarifArtifactLocation
+/// - \ref SarifRule
+/// - \ref SarifResult
+//===----------------------------------------------------------------------===//
+#include "clang/Basic/Sarif.h"
+#include "clang/Basic/SourceLocation.h"
+#include "clang/Basic/SourceManager.h"
+#include "llvm/ADT/ArrayRef.h"
+#include "llvm/ADT/STLExtras.h"
+#include "llvm/ADT/StringExtras.h"
+#include "llvm/ADT/StringRef.h"
+#include "llvm/Support/ConvertUTF.h"
+#include "llvm/Support/JSON.h"
+#include "llvm/Support/Path.h"
+
+#include <optional>
+#include <string>
+#include <utility>
+
+using namespace clang;
+using namespace llvm;
+
+using clang::detail::SarifArtifact;
+using clang::detail::SarifArtifactLocation;
+
+static StringRef getFileName(FileEntryRef FE) {
+  StringRef Filename = FE.getFileEntry().tryGetRealPathName();
+  if (Filename.empty())
+    Filename = FE.getName();
+  return Filename;
+}
+/// \name URI

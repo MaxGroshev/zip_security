@@ -1,0 +1,50 @@
+    // Add the separator between the previous path part and the one being
+    // currently processed.
+    Ret += "/";
+
+    // URI encode the part.
+    for (char C : Component) {
+      Ret += percentEncodeURICharacter(C);
+    }
+  }
+
+  return std::string(Ret);
+}
+///  @}
+
+/// \brief Calculate the column position expressed in the number of UTF-8 code
+/// points from column start to the source location
+///
+/// \param Loc The source location whose column needs to be calculated.
+/// \param TokenLen Optional hint for when the token is multiple bytes long.
+///
+/// \return The column number as a UTF-8 aware byte offset from column start to
+/// the effective source location.
+static unsigned int adjustColumnPos(FullSourceLoc Loc,
+                                    unsigned int TokenLen = 0) {
+  assert(!Loc.isInvalid() && "invalid Loc when adjusting column position");
+
+  std::pair<FileID, unsigned> LocInfo = Loc.getDecomposedExpansionLoc();
+  std::optional<MemoryBufferRef> Buf =
+      Loc.getManager().getBufferOrNone(LocInfo.first);
+  assert(Buf && "got an invalid buffer for the location's file");
+  assert(Buf->getBufferSize() >= (LocInfo.second + TokenLen) &&
+         "token extends past end of buffer?");
+
+  // Adjust the offset to be the start of the line, since we'll be counting
+  // Unicode characters from there until our column offset.
+  unsigned int Off = LocInfo.second - (Loc.getExpansionColumnNumber() - 1);
+  unsigned int Ret = 1;
+  while (Off < (LocInfo.second + TokenLen)) {
+    Off += getNumBytesForUTF8(Buf->getBuffer()[Off]);
+    Ret++;
+  }
+
+  return Ret;
+}
+
+/// \name SARIF Utilities
+/// @{
+
+/// \internal
+json::Object createMessage(StringRef Text) {

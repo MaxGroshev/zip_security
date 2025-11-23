@@ -1,0 +1,50 @@
+
+      if (ShowColors)
+        OS.resetColor();
+
+      OS << '\n';
+    }
+
+    // Print the successors of this block.
+    if (!B.succ_empty()) {
+      const raw_ostream::Colors Color = raw_ostream::MAGENTA;
+      if (ShowColors)
+        OS.changeColor(Color);
+      OS << "   Succs ";
+      if (ShowColors)
+        OS.resetColor();
+      OS << '(' << B.succ_size() << "):";
+      unsigned i = 0;
+
+      if (ShowColors)
+        OS.changeColor(Color);
+
+      for (CFGBlock::const_succ_iterator I = B.succ_begin(), E = B.succ_end();
+           I != E; ++I, ++i) {
+        if (i % 10 == 8)
+          OS << "\n    ";
+
+        CFGBlock *B = *I;
+
+        bool Reachable = true;
+        if (!B) {
+          Reachable = false;
+          B = I->getPossiblyUnreachableBlock();
+        }
+
+        if (B) {
+          OS << " B" << B->getBlockID();
+          if (!Reachable)
+            OS << "(Unreachable)";
+        }
+        else {
+          OS << " NULL";
+        }
+      }
+
+      if (ShowColors)
+        OS.resetColor();
+      OS << '\n';
+    }
+  }
+}

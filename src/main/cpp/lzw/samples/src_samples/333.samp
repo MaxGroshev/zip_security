@@ -1,0 +1,50 @@
+  this->setCapturesCXXThis(CapturesCXXThis);
+  this->NumCaptures = Captures.size();
+
+  if (Captures.empty()) {
+    this->Captures = nullptr;
+    return;
+  }
+
+  this->Captures = Captures.copy(Context).data();
+}
+
+bool BlockDecl::capturesVariable(const VarDecl *variable) const {
+  for (const auto &I : captures())
+    // Only auto vars can be captured, so no redeclaration worries.
+    if (I.getVariable() == variable)
+      return true;
+
+  return false;
+}
+
+SourceRange BlockDecl::getSourceRange() const {
+  return SourceRange(getLocation(), Body ? Body->getEndLoc() : getLocation());
+}
+
+//===----------------------------------------------------------------------===//
+// Other Decl Allocation/Deallocation Method Implementations
+//===----------------------------------------------------------------------===//
+
+void TranslationUnitDecl::anchor() {}
+
+TranslationUnitDecl *TranslationUnitDecl::Create(ASTContext &C) {
+  return new (C, (DeclContext *)nullptr) TranslationUnitDecl(C);
+}
+
+void PragmaCommentDecl::anchor() {}
+
+PragmaCommentDecl *PragmaCommentDecl::Create(const ASTContext &C,
+                                             TranslationUnitDecl *DC,
+                                             SourceLocation CommentLoc,
+                                             PragmaMSCommentKind CommentKind,
+                                             StringRef Arg) {
+  PragmaCommentDecl *PCD =
+      new (C, DC, additionalSizeToAlloc<char>(Arg.size() + 1))
+          PragmaCommentDecl(DC, CommentLoc, CommentKind);
+  memcpy(PCD->getTrailingObjects<char>(), Arg.data(), Arg.size());
+  PCD->getTrailingObjects<char>()[Arg.size()] = '\0';
+  return PCD;
+}
+
+PragmaCommentDecl *PragmaCommentDecl::CreateDeserialized(ASTContext &C,

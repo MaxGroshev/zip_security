@@ -1,0 +1,50 @@
+  // following the switch body.  Moreover, take into account if all the
+  // cases of a switch are covered (e.g., switching on an enum value).
+  //
+  // Note: We add a successor to a switch that is considered covered yet has no
+  //       case statements if the enumeration has no enumerators.
+  bool SwitchAlwaysHasSuccessor = false;
+  SwitchAlwaysHasSuccessor |= switchExclusivelyCovered;
+  SwitchAlwaysHasSuccessor |= Terminator->isAllEnumCasesCovered() &&
+                              Terminator->getSwitchCaseList();
+  addSuccessor(SwitchTerminatedBlock, DefaultCaseBlock,
+               !SwitchAlwaysHasSuccessor);
+
+  // Add the terminator and condition in the switch block.
+  SwitchTerminatedBlock->setTerminator(Terminator);
+  Block = SwitchTerminatedBlock;
+  CFGBlock *LastBlock = addStmt(Terminator->getCond());
+
+  // If the SwitchStmt contains a condition variable, add both the
+  // SwitchStmt and the condition variable initialization to the CFG.
+  if (VarDecl *VD = Terminator->getConditionVariable()) {
+    if (Expr *Init = VD->getInit()) {
+      autoCreateBlock();
+      appendStmt(Block, Terminator->getConditionVariableDeclStmt());
+      LastBlock = addStmt(Init);
+      maybeAddScopeBeginForVarDecl(LastBlock, VD, Init);
+    }
+  }
+
+  // Finally, if the SwitchStmt contains a C++17 init-stmt, add it to the CFG.
+  if (Stmt *Init = Terminator->getInit()) {
+    autoCreateBlock();
+    LastBlock = addStmt(Init);
+  }
+
+  return LastBlock;
+}
+
+static bool shouldAddCase(bool &switchExclusivelyCovered,
+                          const Expr::EvalResult *switchCond,
+                          const CaseStmt *CS,
+                          ASTContext &Ctx) {
+  if (!switchCond)
+    return true;
+
+  bool addCase = false;
+
+  if (!switchExclusivelyCovered) {
+    if (switchCond->Val.isInt()) {
+      // Evaluate the LHS of the case value.
+      const llvm::APSInt &lhsInt = CS->getLHS()->EvaluateKnownConstInt(Ctx);

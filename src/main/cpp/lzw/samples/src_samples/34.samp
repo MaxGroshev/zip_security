@@ -1,0 +1,50 @@
+/// directly tied to the exit block in order to be reachable.
+CFGBlock *CFGBuilder::createNoReturnBlock() {
+  CFGBlock *B = createBlock(false);
+  B->setHasNoReturnElement();
+  addSuccessor(B, &cfg->getExit(), Succ);
+  return B;
+}
+
+/// addInitializer - Add C++ base or member initializer element to CFG.
+CFGBlock *CFGBuilder::addInitializer(CXXCtorInitializer *I) {
+  if (!BuildOpts.AddInitializers)
+    return Block;
+
+  bool HasTemporaries = false;
+
+  // Destructors of temporaries in initialization expression should be called
+  // after initialization finishes.
+  Expr *Init = I->getInit();
+  if (Init) {
+    HasTemporaries = isa<ExprWithCleanups>(Init);
+
+    if (BuildOpts.AddTemporaryDtors && HasTemporaries) {
+      // Generate destructors for temporaries in initialization expression.
+      TempDtorContext Context;
+      VisitForTemporaryDtors(cast<ExprWithCleanups>(Init)->getSubExpr(),
+                             /*ExternallyDestructed=*/false, Context);
+    }
+  }
+
+  autoCreateBlock();
+  appendInitializer(Block, I);
+
+  if (Init) {
+    // If the initializer is an ArrayInitLoopExpr, we want to extract the
+    // initializer, that's used for each element.
+    auto *AILEInit = extractElementInitializerFromNestedAILE(
+        dyn_cast<ArrayInitLoopExpr>(Init));
+
+    findConstructionContexts(
+        ConstructionContextLayer::create(cfg->getBumpVectorContext(), I),
+        AILEInit ? AILEInit : Init);
+
+    if (HasTemporaries) {
+      // For expression with temporaries go directly to subexpression to omit
+      // generating destructors for the second time.
+      return Visit(cast<ExprWithCleanups>(Init)->getSubExpr());
+    }
+    if (BuildOpts.AddCXXDefaultInitExprInCtors) {
+      if (CXXDefaultInitExpr *Default = dyn_cast<CXXDefaultInitExpr>(Init)) {
+        // In general, appending the expression wrapped by a CXXDefaultInitExpr

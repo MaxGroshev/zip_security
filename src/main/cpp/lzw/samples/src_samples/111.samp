@@ -1,0 +1,50 @@
+      OS << "...";
+    OS << "; ";
+    if (Stmt *C = F->getCond())
+      C->printPretty(OS, Helper, Policy);
+    OS << "; ";
+    if (F->getInc())
+      OS << "...";
+    OS << ")";
+  }
+
+  void VisitWhileStmt(WhileStmt *W) {
+    OS << "while " ;
+    if (Stmt *C = W->getCond())
+      C->printPretty(OS, Helper, Policy);
+  }
+
+  void VisitDoStmt(DoStmt *D) {
+    OS << "do ... while ";
+    if (Stmt *C = D->getCond())
+      C->printPretty(OS, Helper, Policy);
+  }
+
+  void VisitSwitchStmt(SwitchStmt *Terminator) {
+    OS << "switch ";
+    Terminator->getCond()->printPretty(OS, Helper, Policy);
+  }
+
+  void VisitCXXTryStmt(CXXTryStmt *) { OS << "try ..."; }
+
+  void VisitObjCAtTryStmt(ObjCAtTryStmt *) { OS << "@try ..."; }
+
+  void VisitSEHTryStmt(SEHTryStmt *CS) { OS << "__try ..."; }
+
+  void VisitAbstractConditionalOperator(AbstractConditionalOperator* C) {
+    if (Stmt *Cond = C->getCond())
+      Cond->printPretty(OS, Helper, Policy);
+    OS << " ? ... : ...";
+  }
+
+  void VisitChooseExpr(ChooseExpr *C) {
+    OS << "__builtin_choose_expr( ";
+    if (Stmt *Cond = C->getCond())
+      Cond->printPretty(OS, Helper, Policy);
+    OS << " )";
+  }
+
+  void VisitIndirectGotoStmt(IndirectGotoStmt *I) {
+    OS << "goto *";
+    if (Stmt *T = I->getTarget())
+      T->printPretty(OS, Helper, Policy);

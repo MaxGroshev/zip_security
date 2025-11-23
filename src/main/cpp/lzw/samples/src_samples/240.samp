@@ -1,0 +1,50 @@
+
+  TemplateSpecializationKind TSK = TSK_Undeclared;
+  if (FunctionTemplateSpecializationInfo *spec
+      = FD->getTemplateSpecializationInfo()) {
+    TSK = spec->getTemplateSpecializationKind();
+  } else if (MemberSpecializationInfo *MSI =
+             FD->getMemberSpecializationInfo()) {
+    TSK = MSI->getTemplateSpecializationKind();
+  }
+
+  const FunctionDecl *Def = nullptr;
+  // InlineVisibilityHidden only applies to definitions, and
+  // isInlined() only gives meaningful answers on definitions
+  // anyway.
+  return TSK != TSK_ExplicitInstantiationDeclaration &&
+    TSK != TSK_ExplicitInstantiationDefinition &&
+    FD->hasBody(Def) && Def->isInlined() && !Def->hasAttr<GNUInlineAttr>();
+}
+
+template <typename T> static bool isFirstInExternCContext(T *D) {
+  const T *First = D->getFirstDecl();
+  return First->isInExternCContext();
+}
+
+static bool isSingleLineLanguageLinkage(const Decl &D) {
+  if (const auto *SD = dyn_cast<LinkageSpecDecl>(D.getDeclContext()))
+    if (!SD->hasBraces())
+      return true;
+  return false;
+}
+
+static bool isDeclaredInModuleInterfaceOrPartition(const NamedDecl *D) {
+  if (auto *M = D->getOwningModule())
+    return M->isInterfaceOrPartition();
+  return false;
+}
+
+static LinkageInfo getExternalLinkageFor(const NamedDecl *D) {
+  return LinkageInfo::external();
+}
+
+static StorageClass getStorageClass(const Decl *D) {
+  if (auto *TD = dyn_cast<TemplateDecl>(D))
+    D = TD->getTemplatedDecl();
+  if (D) {
+    if (auto *VD = dyn_cast<VarDecl>(D))
+      return VD->getStorageClass();
+    if (auto *FD = dyn_cast<FunctionDecl>(D))
+      return FD->getStorageClass();
+  }

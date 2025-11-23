@@ -1,0 +1,50 @@
+    return "error";
+  }
+  llvm_unreachable("Potentially un-handled SarifResultLevel. "
+                   "Is the switch not fully covered?");
+}
+
+static json::Object
+createThreadFlowLocation(json::Object &&Location,
+                         const ThreadFlowImportance &Importance) {
+  return json::Object{{"location", std::move(Location)},
+                      {"importance", importanceToStr(Importance)}};
+}
+///  @}
+
+json::Object
+SarifDocumentWriter::createPhysicalLocation(const CharSourceRange &R) {
+  assert(R.isValid() &&
+         "Cannot create a physicalLocation from invalid SourceRange!");
+  assert(R.isCharRange() &&
+         "Cannot create a physicalLocation from a token range!");
+  FullSourceLoc Start{R.getBegin(), SourceMgr};
+  OptionalFileEntryRef FE = Start.getExpansionLoc().getFileEntryRef();
+  assert(FE && "Diagnostic does not exist within a valid file!");
+
+  const std::string &FileURI = fileNameToURI(getFileName(*FE));
+  auto I = CurrentArtifacts.find(FileURI);
+
+  if (I == CurrentArtifacts.end()) {
+    uint32_t Idx = static_cast<uint32_t>(CurrentArtifacts.size());
+    const SarifArtifactLocation &Location =
+        SarifArtifactLocation::create(FileURI).setIndex(Idx);
+    const SarifArtifact &Artifact = SarifArtifact::create(Location)
+                                        .setRoles({"resultFile"})
+                                        .setLength(FE->getSize())
+                                        .setMimeType("text/plain");
+    auto StatusIter = CurrentArtifacts.insert({FileURI, Artifact});
+    // If inserted, ensure the original iterator points to the newly inserted
+    // element, so it can be used downstream.
+    if (StatusIter.second)
+      I = StatusIter.first;
+  }
+  assert(I != CurrentArtifacts.end() && "Failed to insert new artifact");
+  const SarifArtifactLocation &Location = I->second.Location;
+  json::Object ArtifactLocationObject{{"uri", Location.URI}};
+  if (Location.Index.has_value())
+    ArtifactLocationObject["index"] = *Location.Index;
+  return json::Object{{{"artifactLocation", std::move(ArtifactLocationObject)},
+                       {"region", createTextRegion(SourceMgr, R)}}};
+}
+

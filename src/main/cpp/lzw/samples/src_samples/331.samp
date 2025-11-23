@@ -1,0 +1,50 @@
+
+bool RecordDecl::mayInsertExtraPadding(bool EmitRemark) const {
+  ASTContext &Context = getASTContext();
+  const SanitizerMask EnabledAsanMask = Context.getLangOpts().Sanitize.Mask &
+      (SanitizerKind::Address | SanitizerKind::KernelAddress);
+  if (!EnabledAsanMask || !Context.getLangOpts().SanitizeAddressFieldPadding)
+    return false;
+  const auto &NoSanitizeList = Context.getNoSanitizeList();
+  const auto *CXXRD = dyn_cast<CXXRecordDecl>(this);
+  // We may be able to relax some of these requirements.
+  int ReasonToReject = -1;
+  if (!CXXRD || CXXRD->isExternCContext())
+    ReasonToReject = 0;  // is not C++.
+  else if (CXXRD->hasAttr<PackedAttr>())
+    ReasonToReject = 1;  // is packed.
+  else if (CXXRD->isUnion())
+    ReasonToReject = 2;  // is a union.
+  else if (CXXRD->isTriviallyCopyable())
+    ReasonToReject = 3;  // is trivially copyable.
+  else if (CXXRD->hasTrivialDestructor())
+    ReasonToReject = 4;  // has trivial destructor.
+  else if (CXXRD->isStandardLayout())
+    ReasonToReject = 5;  // is standard layout.
+  else if (NoSanitizeList.containsLocation(EnabledAsanMask, getLocation(),
+                                           "field-padding"))
+    ReasonToReject = 6;  // is in an excluded file.
+  else if (NoSanitizeList.containsType(
+               EnabledAsanMask, getQualifiedNameAsString(), "field-padding"))
+    ReasonToReject = 7;  // The type is excluded.
+
+  if (EmitRemark) {
+    if (ReasonToReject >= 0)
+      Context.getDiagnostics().Report(
+          getLocation(),
+          diag::remark_sanitize_address_insert_extra_padding_rejected)
+          << getQualifiedNameAsString() << ReasonToReject;
+    else
+      Context.getDiagnostics().Report(
+          getLocation(),
+          diag::remark_sanitize_address_insert_extra_padding_accepted)
+          << getQualifiedNameAsString();
+  }
+  return ReasonToReject < 0;
+}
+
+const FieldDecl *RecordDecl::findFirstNamedDataMember() const {
+  for (const auto *I : fields()) {
+    if (I->getIdentifier())
+      return I;
+

@@ -1,0 +1,50 @@
+  CFG::BuildOptions::ForcedBlkExprs::iterator itr = fb->find(stmt);
+  if (itr == fb->end()) {
+    cachedEntry = nullptr;
+    return shouldAdd;
+  }
+
+  cachedEntry = &*itr;
+  return true;
+}
+
+// FIXME: Add support for dependent-sized array types in C++?
+// Does it even make sense to build a CFG for an uninstantiated template?
+static const VariableArrayType *FindVA(const Type *t) {
+  while (const ArrayType *vt = dyn_cast<ArrayType>(t)) {
+    if (const VariableArrayType *vat = dyn_cast<VariableArrayType>(vt))
+      if (vat->getSizeExpr())
+        return vat;
+
+    t = vt->getElementType().getTypePtr();
+  }
+
+  return nullptr;
+}
+
+void CFGBuilder::consumeConstructionContext(
+    const ConstructionContextLayer *Layer, Expr *E) {
+  assert((isa<CXXConstructExpr>(E) || isa<CallExpr>(E) ||
+          isa<ObjCMessageExpr>(E)) && "Expression cannot construct an object!");
+  if (const ConstructionContextLayer *PreviouslyStoredLayer =
+          ConstructionContextMap.lookup(E)) {
+    (void)PreviouslyStoredLayer;
+    // We might have visited this child when we were finding construction
+    // contexts within its parents.
+    assert(PreviouslyStoredLayer->isStrictlyMoreSpecificThan(Layer) &&
+           "Already within a different construction context!");
+  } else {
+    ConstructionContextMap[E] = Layer;
+  }
+}
+
+void CFGBuilder::findConstructionContexts(
+    const ConstructionContextLayer *Layer, Stmt *Child) {
+  if (!BuildOpts.AddRichCXXConstructors)
+    return;
+
+  if (!Child)
+    return;
+
+  auto withExtraLayer = [this, Layer](const ConstructionContextItem &Item) {
+    return ConstructionContextLayer::create(cfg->getBumpVectorContext(), Item,

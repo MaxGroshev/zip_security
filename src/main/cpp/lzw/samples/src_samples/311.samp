@@ -1,0 +1,50 @@
+      !clang::isTemplateInstantiation(getTemplateSpecializationKind()))
+    return nullptr;
+
+  if (FunctionTemplateDecl *Primary = getPrimaryTemplate()) {
+    // If we hit a point where the user provided a specialization of this
+    // template, we're done looking.
+    while (!ForDefinition || !Primary->isMemberSpecialization()) {
+      auto *NewPrimary = Primary->getInstantiatedFromMemberTemplate();
+      if (!NewPrimary)
+        break;
+      Primary = NewPrimary;
+    }
+
+    return getDefinitionOrSelf(Primary->getTemplatedDecl());
+  }
+
+  return nullptr;
+}
+
+FunctionTemplateDecl *FunctionDecl::getPrimaryTemplate() const {
+  if (FunctionTemplateSpecializationInfo *Info
+        = TemplateOrSpecialization
+            .dyn_cast<FunctionTemplateSpecializationInfo*>()) {
+    return Info->getTemplate();
+  }
+  return nullptr;
+}
+
+FunctionTemplateSpecializationInfo *
+FunctionDecl::getTemplateSpecializationInfo() const {
+  return TemplateOrSpecialization
+      .dyn_cast<FunctionTemplateSpecializationInfo *>();
+}
+
+const TemplateArgumentList *
+FunctionDecl::getTemplateSpecializationArgs() const {
+  if (FunctionTemplateSpecializationInfo *Info
+        = TemplateOrSpecialization
+            .dyn_cast<FunctionTemplateSpecializationInfo*>()) {
+    return Info->TemplateArguments;
+  }
+  return nullptr;
+}
+
+const ASTTemplateArgumentListInfo *
+FunctionDecl::getTemplateSpecializationArgsAsWritten() const {
+  if (FunctionTemplateSpecializationInfo *Info
+        = TemplateOrSpecialization
+            .dyn_cast<FunctionTemplateSpecializationInfo*>()) {
+    return Info->TemplateArgumentsAsWritten;

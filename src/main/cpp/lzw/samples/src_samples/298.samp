@@ -1,0 +1,50 @@
+  return isDeclExternC(*this);
+}
+
+bool FunctionDecl::isInExternCContext() const {
+  if (hasAttr<OpenCLKernelAttr>())
+    return true;
+  return getLexicalDeclContext()->isExternCContext();
+}
+
+bool FunctionDecl::isInExternCXXContext() const {
+  return getLexicalDeclContext()->isExternCXXContext();
+}
+
+bool FunctionDecl::isGlobal() const {
+  if (const auto *Method = dyn_cast<CXXMethodDecl>(this))
+    return Method->isStatic();
+
+  if (getCanonicalDecl()->getStorageClass() == SC_Static)
+    return false;
+
+  for (const DeclContext *DC = getDeclContext();
+       DC->isNamespace();
+       DC = DC->getParent()) {
+    if (const auto *Namespace = cast<NamespaceDecl>(DC)) {
+      if (!Namespace->getDeclName())
+        return false;
+    }
+  }
+
+  return true;
+}
+
+bool FunctionDecl::isNoReturn() const {
+  if (hasAttr<NoReturnAttr>() || hasAttr<CXX11NoReturnAttr>() ||
+      hasAttr<C11NoReturnAttr>())
+    return true;
+
+  if (auto *FnTy = getType()->getAs<FunctionType>())
+    return FnTy->getNoReturnAttr();
+
+  return false;
+}
+
+bool FunctionDecl::isMemberLikeConstrainedFriend() const {
+  // C++20 [temp.friend]p9:
+  //   A non-template friend declaration with a requires-clause [or]
+  //   a friend function template with a constraint that depends on a template
+  //   parameter from an enclosing template [...] does not declare the same
+  //   function or function template as a declaration in any other scope.
+

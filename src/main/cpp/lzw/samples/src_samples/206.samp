@@ -1,0 +1,50 @@
+    IO.mapOptional("ResultType", F.ResultType, StringRef(""));
+  }
+};
+} // namespace yaml
+} // namespace llvm
+
+namespace {
+struct GlobalVariable {
+  StringRef Name;
+  std::optional<NullabilityKind> Nullability;
+  AvailabilityItem Availability;
+  std::optional<bool> SwiftPrivate;
+  StringRef SwiftName;
+  StringRef Type;
+};
+
+typedef std::vector<GlobalVariable> GlobalVariablesSeq;
+} // namespace
+
+LLVM_YAML_IS_SEQUENCE_VECTOR(GlobalVariable)
+
+namespace llvm {
+namespace yaml {
+template <> struct MappingTraits<GlobalVariable> {
+  static void mapping(IO &IO, GlobalVariable &GV) {
+    IO.mapRequired("Name", GV.Name);
+    IO.mapOptional("Nullability", GV.Nullability, std::nullopt);
+    IO.mapOptional("Availability", GV.Availability.Mode,
+                   APIAvailability::Available);
+    IO.mapOptional("AvailabilityMsg", GV.Availability.Msg, StringRef(""));
+    IO.mapOptional("SwiftPrivate", GV.SwiftPrivate);
+    IO.mapOptional("SwiftName", GV.SwiftName, StringRef(""));
+    IO.mapOptional("Type", GV.Type, StringRef(""));
+  }
+};
+} // namespace yaml
+} // namespace llvm
+
+namespace {
+struct EnumConstant {
+  StringRef Name;
+  AvailabilityItem Availability;
+  std::optional<bool> SwiftPrivate;
+  StringRef SwiftName;
+};
+
+typedef std::vector<EnumConstant> EnumConstantsSeq;
+} // namespace
+
+LLVM_YAML_IS_SEQUENCE_VECTOR(EnumConstant)

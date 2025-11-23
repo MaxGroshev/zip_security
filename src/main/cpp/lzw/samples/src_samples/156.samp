@@ -1,0 +1,50 @@
+
+    // The leftover modules from the crash are stored in
+    //  <name>.cache/vfs/modules
+    // Leave it untouched for pcm inspection and provide a clean/empty dir
+    // path to contain the future generated module cache:
+    //  <name>.cache/vfs/repro-modules
+    SmallString<128> RelModCacheDir = llvm::sys::path::parent_path(
+        llvm::sys::path::parent_path(CrashInfo->VFSPath));
+    llvm::sys::path::append(RelModCacheDir, "repro-modules");
+
+    std::string ModCachePath = "-fmodules-cache-path=";
+    ModCachePath.append(RelModCacheDir.c_str());
+
+    OS << ' ';
+    llvm::sys::printArg(OS, ModCachePath, Quote);
+  }
+
+  if (ResponseFile != nullptr) {
+    OS << "\n Arguments passed via response file:\n";
+    writeResponseFile(OS);
+    // Avoiding duplicated newline terminator, since FileLists are
+    // newline-separated.
+    if (ResponseSupport.ResponseKind != ResponseFileSupport::RF_FileList)
+      OS << "\n";
+    OS << " (end of response file)";
+  }
+
+  OS << Terminator;
+}
+
+void Command::setResponseFile(const char *FileName) {
+  ResponseFile = FileName;
+  ResponseFileFlag = ResponseSupport.ResponseFlag;
+  ResponseFileFlag += FileName;
+}
+
+void Command::setEnvironment(llvm::ArrayRef<const char *> NewEnvironment) {
+  Environment.reserve(NewEnvironment.size() + 1);
+  Environment.assign(NewEnvironment.begin(), NewEnvironment.end());
+  Environment.push_back(nullptr);
+}
+
+void Command::setRedirectFiles(
+    const std::vector<std::optional<std::string>> &Redirects) {
+  RedirectFiles = Redirects;
+}
+
+void Command::PrintFileNames() const {
+  if (PrintInputFilenames) {
+    for (const auto &Arg : InputInfoList)

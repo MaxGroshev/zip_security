@@ -1,0 +1,50 @@
+    : ValueDecl(EnumConstant, DC, L, Id, T), Init((Stmt *)E) {
+  setInitVal(C, V);
+}
+
+EnumConstantDecl *EnumConstantDecl::Create(ASTContext &C, EnumDecl *CD,
+                                           SourceLocation L,
+                                           IdentifierInfo *Id, QualType T,
+                                           Expr *E, const llvm::APSInt &V) {
+  return new (C, CD) EnumConstantDecl(C, CD, L, Id, T, E, V);
+}
+
+EnumConstantDecl *
+EnumConstantDecl::CreateDeserialized(ASTContext &C, unsigned ID) {
+  return new (C, ID) EnumConstantDecl(C, nullptr, SourceLocation(), nullptr,
+                                      QualType(), nullptr, llvm::APSInt());
+}
+
+void IndirectFieldDecl::anchor() {}
+
+IndirectFieldDecl::IndirectFieldDecl(ASTContext &C, DeclContext *DC,
+                                     SourceLocation L, DeclarationName N,
+                                     QualType T,
+                                     MutableArrayRef<NamedDecl *> CH)
+    : ValueDecl(IndirectField, DC, L, N, T), Chaining(CH.data()),
+      ChainingSize(CH.size()) {
+  // In C++, indirect field declarations conflict with tag declarations in the
+  // same scope, so add them to IDNS_Tag so that tag redeclaration finds them.
+  if (C.getLangOpts().CPlusPlus)
+    IdentifierNamespace |= IDNS_Tag;
+}
+
+IndirectFieldDecl *
+IndirectFieldDecl::Create(ASTContext &C, DeclContext *DC, SourceLocation L,
+                          IdentifierInfo *Id, QualType T,
+                          llvm::MutableArrayRef<NamedDecl *> CH) {
+  return new (C, DC) IndirectFieldDecl(C, DC, L, Id, T, CH);
+}
+
+IndirectFieldDecl *IndirectFieldDecl::CreateDeserialized(ASTContext &C,
+                                                         unsigned ID) {
+  return new (C, ID)
+      IndirectFieldDecl(C, nullptr, SourceLocation(), DeclarationName(),
+                        QualType(), std::nullopt);
+}
+
+SourceRange EnumConstantDecl::getSourceRange() const {
+  SourceLocation End = getLocation();
+  if (Init)
+    End = Init->getEndLoc();
+  return SourceRange(getLocation(), End);

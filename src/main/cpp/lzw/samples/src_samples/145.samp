@@ -1,0 +1,50 @@
+  return json::Object{{"text", Text.str()}};
+}
+
+/// \internal
+/// \pre CharSourceRange must be a token range
+static json::Object createTextRegion(const SourceManager &SM,
+                                     const CharSourceRange &R) {
+  FullSourceLoc BeginCharLoc{R.getBegin(), SM};
+  FullSourceLoc EndCharLoc{R.getEnd(), SM};
+  json::Object Region{{"startLine", BeginCharLoc.getExpansionLineNumber()},
+                      {"startColumn", adjustColumnPos(BeginCharLoc)}};
+
+  if (BeginCharLoc == EndCharLoc) {
+    Region["endColumn"] = adjustColumnPos(BeginCharLoc);
+  } else {
+    Region["endLine"] = EndCharLoc.getExpansionLineNumber();
+    Region["endColumn"] = adjustColumnPos(EndCharLoc);
+  }
+  return Region;
+}
+
+static json::Object createLocation(json::Object &&PhysicalLocation,
+                                   StringRef Message = "") {
+  json::Object Ret{{"physicalLocation", std::move(PhysicalLocation)}};
+  if (!Message.empty())
+    Ret.insert({"message", createMessage(Message)});
+  return Ret;
+}
+
+static StringRef importanceToStr(ThreadFlowImportance I) {
+  switch (I) {
+  case ThreadFlowImportance::Important:
+    return "important";
+  case ThreadFlowImportance::Essential:
+    return "essential";
+  case ThreadFlowImportance::Unimportant:
+    return "unimportant";
+  }
+  llvm_unreachable("Fully covered switch is not so fully covered");
+}
+
+static StringRef resultLevelToStr(SarifResultLevel R) {
+  switch (R) {
+  case SarifResultLevel::None:
+    return "none";
+  case SarifResultLevel::Note:
+    return "note";
+  case SarifResultLevel::Warning:
+    return "warning";
+  case SarifResultLevel::Error:

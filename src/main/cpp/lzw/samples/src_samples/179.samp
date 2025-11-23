@@ -1,0 +1,50 @@
+  using offset_type = unsigned;
+
+  hash_value_type ComputeHash(key_type_ref Key) {
+    return static_cast<size_t>(Key.hashValue());
+  }
+
+  std::pair<unsigned, unsigned> EmitKeyDataLength(raw_ostream &OS, key_type_ref,
+                                                  data_type_ref) {
+    uint32_t KeyLength = sizeof(uint32_t) + sizeof(uint8_t) + sizeof(uint32_t);
+    uint32_t DataLength = sizeof(uint32_t);
+
+    llvm::support::endian::Writer writer(OS, llvm::endianness::little);
+    writer.write<uint16_t>(KeyLength);
+    writer.write<uint16_t>(DataLength);
+    return {KeyLength, DataLength};
+  }
+
+  void EmitKey(raw_ostream &OS, key_type_ref Key, unsigned) {
+    llvm::support::endian::Writer writer(OS, llvm::endianness::little);
+    writer.write<uint32_t>(Key.parentContextID);
+    writer.write<uint8_t>(Key.contextKind);
+    writer.write<uint32_t>(Key.contextID);
+  }
+
+  void EmitData(raw_ostream &OS, key_type_ref, data_type_ref Data, unsigned) {
+    llvm::support::endian::Writer writer(OS, llvm::endianness::little);
+    writer.write<uint32_t>(Data);
+  }
+};
+
+/// Localized helper to make a type dependent, thwarting template argument
+/// deduction.
+template <typename T> struct MakeDependent { typedef T Type; };
+
+/// Retrieve the serialized size of the given VersionTuple, for use in
+/// on-disk hash tables.
+unsigned getVersionTupleSize(const VersionTuple &VT) {
+  unsigned size = sizeof(uint8_t) + /*major*/ sizeof(uint32_t);
+  if (VT.getMinor())
+    size += sizeof(uint32_t);
+  if (VT.getSubminor())
+    size += sizeof(uint32_t);
+  if (VT.getBuild())
+    size += sizeof(uint32_t);
+  return size;
+}
+
+/// Determine the size of an array of versioned information,
+template <typename T>
+unsigned getVersionedInfoSize(

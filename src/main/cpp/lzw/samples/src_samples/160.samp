@@ -1,0 +1,50 @@
+/// clang-format.
+///
+/// In order to not violate the requirement that clang-format can format files
+/// in isolation, clang-format's macro support uses expansions users provide
+/// as part of clang-format's style configuration.
+///
+/// Macro definitions are of the form "MACRO(p1, p2)=p1 + p2", but only support
+/// one level of expansion (\see MacroExpander for a full description of what
+/// is supported).
+///
+/// As part of parsing, clang-format uses the MacroExpander to expand the
+/// spelled token streams into expanded token streams when it encounters a
+/// macro call. The UnwrappedLineParser continues to parse UnwrappedLines
+/// from the expanded token stream.
+/// After the expanded unwrapped lines are parsed, the MacroCallReconstructor
+/// matches the spelled token stream into unwrapped lines that best resemble the
+/// structure of the expanded unwrapped lines. These reconstructed unwrapped
+/// lines are aliasing the tokens in the expanded token stream, so that token
+/// annotations will be reused when formatting the spelled macro calls.
+///
+/// When formatting, clang-format annotates and formats the expanded unwrapped
+/// lines first, determining the token types. Next, it formats the spelled
+/// unwrapped lines, keeping the token types fixed, while allowing other
+/// formatting decisions to change.
+///
+//===----------------------------------------------------------------------===//
+
+#ifndef CLANG_LIB_FORMAT_MACROS_H
+#define CLANG_LIB_FORMAT_MACROS_H
+
+#include <list>
+#include <map>
+#include <string>
+#include <vector>
+
+#include "FormatToken.h"
+#include "llvm/ADT/ArrayRef.h"
+#include "llvm/ADT/DenseMap.h"
+#include "llvm/ADT/SmallVector.h"
+#include "llvm/ADT/StringRef.h"
+
+namespace clang {
+namespace format {
+
+struct UnwrappedLine;
+struct UnwrappedLineNode;
+
+/// Takes a set of macro definitions as strings and allows expanding calls to
+/// those macros.
+///

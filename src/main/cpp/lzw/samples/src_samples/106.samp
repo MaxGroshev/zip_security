@@ -1,0 +1,50 @@
+                       "ImplicitDtors");
+    case CFGElement::AutomaticObjectDtor: {
+      const VarDecl *var = castAs<CFGAutomaticObjDtor>().getVarDecl();
+      QualType ty = var->getType();
+
+      // FIXME: See CFGBuilder::addLocalScopeForVarDecl.
+      //
+      // Lifetime-extending constructs are handled here. This works for a single
+      // temporary in an initializer expression.
+      if (ty->isReferenceType()) {
+        if (const Expr *Init = var->getInit()) {
+          ty = getReferenceInitTemporaryType(Init);
+        }
+      }
+
+      while (const ArrayType *arrayType = astContext.getAsArrayType(ty)) {
+        ty = arrayType->getElementType();
+      }
+
+      // The situation when the type of the lifetime-extending reference
+      // does not correspond to the type of the object is supposed
+      // to be handled by now. In particular, 'ty' is now the unwrapped
+      // record type.
+      const CXXRecordDecl *classDecl = ty->getAsCXXRecordDecl();
+      assert(classDecl);
+      return classDecl->getDestructor();
+    }
+    case CFGElement::DeleteDtor: {
+      const CXXDeleteExpr *DE = castAs<CFGDeleteDtor>().getDeleteExpr();
+      QualType DTy = DE->getDestroyedType();
+      DTy = DTy.getNonReferenceType();
+      const CXXRecordDecl *classDecl =
+          astContext.getBaseElementType(DTy)->getAsCXXRecordDecl();
+      return classDecl->getDestructor();
+    }
+    case CFGElement::TemporaryDtor: {
+      const CXXBindTemporaryExpr *bindExpr =
+        castAs<CFGTemporaryDtor>().getBindTemporaryExpr();
+      const CXXTemporary *temp = bindExpr->getTemporary();
+      return temp->getDestructor();
+    }
+    case CFGElement::MemberDtor: {
+      const FieldDecl *field = castAs<CFGMemberDtor>().getFieldDecl();
+      QualType ty = field->getType();
+
+      while (const ArrayType *arrayType = astContext.getAsArrayType(ty)) {
+        ty = arrayType->getElementType();
+      }
+
+      const CXXRecordDecl *classDecl = ty->getAsCXXRecordDecl();

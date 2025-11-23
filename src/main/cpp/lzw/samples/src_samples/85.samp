@@ -1,0 +1,50 @@
+    Succ = BodyBlock;
+    CFGBlock *LoopBackBlock = createBlock();
+    LoopBackBlock->setLoopTarget(D);
+
+    if (!KnownVal.isFalse())
+      // Add the loop body entry as a successor to the condition.
+      addSuccessor(ExitConditionBlock, LoopBackBlock);
+    else
+      addSuccessor(ExitConditionBlock, nullptr);
+  }
+
+  // Link up the condition block with the code that follows the loop.
+  // (the false branch).
+  addSuccessor(ExitConditionBlock, KnownVal.isTrue() ? nullptr : LoopSuccessor);
+
+  // There can be no more statements in the body block(s) since we loop back to
+  // the body.  NULL out Block to force lazy creation of another block.
+  Block = nullptr;
+
+  // Return the loop body, which is the dominating block for the loop.
+  Succ = BodyBlock;
+  return BodyBlock;
+}
+
+CFGBlock *CFGBuilder::VisitContinueStmt(ContinueStmt *C) {
+  // "continue" is a control-flow statement.  Thus we stop processing the
+  // current block.
+  if (badCFG)
+    return nullptr;
+
+  // Now create a new block that ends with the continue statement.
+  Block = createBlock(false);
+  Block->setTerminator(C);
+
+  // If there is no target for the continue, then we are looking at an
+  // incomplete AST.  This means the CFG cannot be constructed.
+  if (ContinueJumpTarget.block) {
+    addAutomaticObjHandling(ScopePos, ContinueJumpTarget.scopePosition, C);
+    addSuccessor(Block, ContinueJumpTarget.block);
+  } else
+    badCFG = true;
+
+  return Block;
+}
+
+CFGBlock *CFGBuilder::VisitUnaryExprOrTypeTraitExpr(UnaryExprOrTypeTraitExpr *E,
+                                                    AddStmtChoice asc) {
+  if (asc.alwaysAdd(*this, E)) {
+    autoCreateBlock();
+    appendStmt(Block, E);

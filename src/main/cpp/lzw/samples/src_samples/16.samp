@@ -1,0 +1,50 @@
+    const ConstructionContextLayer *Layer = ConstructionContextMap.lookup(E);
+    if (!Layer)
+      return nullptr;
+
+    cleanupConstructionContext(E);
+    return ConstructionContext::createFromLayers(cfg->getBumpVectorContext(),
+                                                 Layer);
+  }
+
+  // Interface to CFGBlock - adding CFGElements.
+
+  void appendStmt(CFGBlock *B, const Stmt *S) {
+    if (alwaysAdd(S) && cachedEntry)
+      cachedEntry->second = B;
+
+    // All block-level expressions should have already been IgnoreParens()ed.
+    assert(!isa<Expr>(S) || cast<Expr>(S)->IgnoreParens() == S);
+    B->appendStmt(const_cast<Stmt*>(S), cfg->getBumpVectorContext());
+  }
+
+  void appendConstructor(CFGBlock *B, CXXConstructExpr *CE) {
+    if (const ConstructionContext *CC =
+            retrieveAndCleanupConstructionContext(CE)) {
+      B->appendConstructor(CE, CC, cfg->getBumpVectorContext());
+      return;
+    }
+
+    // No valid construction context found. Fall back to statement.
+    B->appendStmt(CE, cfg->getBumpVectorContext());
+  }
+
+  void appendCall(CFGBlock *B, CallExpr *CE) {
+    if (alwaysAdd(CE) && cachedEntry)
+      cachedEntry->second = B;
+
+    if (const ConstructionContext *CC =
+            retrieveAndCleanupConstructionContext(CE)) {
+      B->appendCXXRecordTypedCall(CE, CC, cfg->getBumpVectorContext());
+      return;
+    }
+
+    // No valid construction context found. Fall back to statement.
+    B->appendStmt(CE, cfg->getBumpVectorContext());
+  }
+
+  void appendInitializer(CFGBlock *B, CXXCtorInitializer *I) {
+    B->appendInitializer(I, cfg->getBumpVectorContext());
+  }
+
+  void appendNewAllocator(CFGBlock *B, CXXNewExpr *NE) {

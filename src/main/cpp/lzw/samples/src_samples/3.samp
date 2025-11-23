@@ -1,0 +1,50 @@
+  if (isa<DeclRefExpr>(E1) != isa<DeclRefExpr>(E2))
+    return false;
+
+  // Integer literal comparisons, regardless of literal type, are acceptable.
+  if (!isa<DeclRefExpr>(E1))
+    return true;
+
+  // IntegerLiterals are handled above and only EnumConstantDecls are expected
+  // beyond this point
+  assert(isa<DeclRefExpr>(E1) && isa<DeclRefExpr>(E2));
+  auto *Decl1 = cast<DeclRefExpr>(E1)->getDecl();
+  auto *Decl2 = cast<DeclRefExpr>(E2)->getDecl();
+
+  assert(isa<EnumConstantDecl>(Decl1) && isa<EnumConstantDecl>(Decl2));
+  const DeclContext *DC1 = Decl1->getDeclContext();
+  const DeclContext *DC2 = Decl2->getDeclContext();
+
+  assert(isa<EnumDecl>(DC1) && isa<EnumDecl>(DC2));
+  return DC1 == DC2;
+}
+
+namespace {
+
+class CFGBuilder;
+
+/// The CFG builder uses a recursive algorithm to build the CFG.  When
+///  we process an expression, sometimes we know that we must add the
+///  subexpressions as block-level expressions.  For example:
+///
+///    exp1 || exp2
+///
+///  When processing the '||' expression, we know that exp1 and exp2
+///  need to be added as block-level expressions, even though they
+///  might not normally need to be.  AddStmtChoice records this
+///  contextual information.  If AddStmtChoice is 'NotAlwaysAdd', then
+///  the builder has an option not to add a subexpression as a
+///  block-level expression.
+class AddStmtChoice {
+public:
+  enum Kind { NotAlwaysAdd = 0, AlwaysAdd = 1 };
+
+  AddStmtChoice(Kind a_kind = NotAlwaysAdd) : kind(a_kind) {}
+
+  bool alwaysAdd(CFGBuilder &builder,
+                 const Stmt *stmt) const;
+
+  /// Return a copy of this object, except with the 'always-add' bit
+  ///  set as specified.
+  AddStmtChoice withAlwaysAdd(bool alwaysAdd) const {
+    return AddStmtChoice(alwaysAdd ? AlwaysAdd : NotAlwaysAdd);

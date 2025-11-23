@@ -1,0 +1,50 @@
+    default:
+      return VisitChildrenForTemporaryDtors(E, false, Context);
+
+    case Stmt::InitListExprClass:
+      return VisitChildrenForTemporaryDtors(E, ExternallyDestructed, Context);
+
+    case Stmt::BinaryOperatorClass:
+      return VisitBinaryOperatorForTemporaryDtors(cast<BinaryOperator>(E),
+                                                  ExternallyDestructed,
+                                                  Context);
+
+    case Stmt::CXXBindTemporaryExprClass:
+      return VisitCXXBindTemporaryExprForTemporaryDtors(
+          cast<CXXBindTemporaryExpr>(E), ExternallyDestructed, Context);
+
+    case Stmt::BinaryConditionalOperatorClass:
+    case Stmt::ConditionalOperatorClass:
+      return VisitConditionalOperatorForTemporaryDtors(
+          cast<AbstractConditionalOperator>(E), ExternallyDestructed, Context);
+
+    case Stmt::ImplicitCastExprClass:
+      // For implicit cast we want ExternallyDestructed to be passed further.
+      E = cast<CastExpr>(E)->getSubExpr();
+      goto tryAgain;
+
+    case Stmt::CXXFunctionalCastExprClass:
+      // For functional cast we want ExternallyDestructed to be passed further.
+      E = cast<CXXFunctionalCastExpr>(E)->getSubExpr();
+      goto tryAgain;
+
+    case Stmt::ConstantExprClass:
+      E = cast<ConstantExpr>(E)->getSubExpr();
+      goto tryAgain;
+
+    case Stmt::ParenExprClass:
+      E = cast<ParenExpr>(E)->getSubExpr();
+      goto tryAgain;
+
+    case Stmt::MaterializeTemporaryExprClass: {
+      const MaterializeTemporaryExpr* MTE = cast<MaterializeTemporaryExpr>(E);
+      ExternallyDestructed = (MTE->getStorageDuration() != SD_FullExpression);
+      SmallVector<const Expr *, 2> CommaLHSs;
+      SmallVector<SubobjectAdjustment, 2> Adjustments;
+      // Find the expression whose lifetime needs to be extended.
+      E = const_cast<Expr *>(
+          cast<MaterializeTemporaryExpr>(E)
+              ->getSubExpr()
+              ->skipRValueSubobjectAdjustments(CommaLHSs, Adjustments));
+      // Visit the skipped comma operator left-hand sides for other temporaries.
+      for (const Expr *CommaLHS : CommaLHSs) {

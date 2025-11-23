@@ -1,0 +1,50 @@
+    GLOBAL_VARIABLE_DATA, // record ID
+    llvm::BCVBR<16>,      // table offset within the blob (see below)
+    llvm::BCBlob          // map from name to global variable information
+    >;
+} // namespace global_variable_block
+
+namespace global_function_block {
+enum { GLOBAL_FUNCTION_DATA = 1 };
+
+using GlobalFunctionDataLayout = llvm::BCRecordLayout<
+    GLOBAL_FUNCTION_DATA, // record ID
+    llvm::BCVBR<16>,      // table offset within the blob (see below)
+    llvm::BCBlob          // map from name to global function information
+    >;
+} // namespace global_function_block
+
+namespace tag_block {
+enum { TAG_DATA = 1 };
+
+using TagDataLayout =
+    llvm::BCRecordLayout<TAG_DATA,        // record ID
+                         llvm::BCVBR<16>, // table offset within the blob (see
+                                          // below)
+                         llvm::BCBlob     // map from name to tag information
+                         >;
+} // namespace tag_block
+
+namespace typedef_block {
+enum { TYPEDEF_DATA = 1 };
+
+using TypedefDataLayout =
+    llvm::BCRecordLayout<TYPEDEF_DATA,    // record ID
+                         llvm::BCVBR<16>, // table offset within the blob (see
+                                          // below)
+                         llvm::BCBlob // map from name to typedef information
+                         >;
+} // namespace typedef_block
+
+namespace enum_constant_block {
+enum { ENUM_CONSTANT_DATA = 1 };
+
+using EnumConstantDataLayout =
+    llvm::BCRecordLayout<ENUM_CONSTANT_DATA, // record ID
+                         llvm::BCVBR<16>, // table offset within the blob (see
+                                          // below)
+                         llvm::BCBlob // map from name to enumerator information
+                         >;
+} // namespace enum_constant_block
+
+/// A stored Objective-C selector.

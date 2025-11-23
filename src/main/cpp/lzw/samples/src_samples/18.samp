@@ -1,0 +1,50 @@
+    B->addSuccessor(CFGBlock::AdjacentBlock(S, IsReachable),
+                    cfg->getBumpVectorContext());
+  }
+
+  /// Add a reachable successor to a block, with the alternate variant that is
+  /// unreachable.
+  void addSuccessor(CFGBlock *B, CFGBlock *ReachableBlock, CFGBlock *AltBlock) {
+    B->addSuccessor(CFGBlock::AdjacentBlock(ReachableBlock, AltBlock),
+                    cfg->getBumpVectorContext());
+  }
+
+  void appendScopeBegin(CFGBlock *B, const VarDecl *VD, const Stmt *S) {
+    if (BuildOpts.AddScopes)
+      B->appendScopeBegin(VD, S, cfg->getBumpVectorContext());
+  }
+
+  void appendScopeEnd(CFGBlock *B, const VarDecl *VD, const Stmt *S) {
+    if (BuildOpts.AddScopes)
+      B->appendScopeEnd(VD, S, cfg->getBumpVectorContext());
+  }
+
+  /// Find a relational comparison with an expression evaluating to a
+  /// boolean and a constant other than 0 and 1.
+  /// e.g. if ((x < y) == 10)
+  TryResult checkIncorrectRelationalOperator(const BinaryOperator *B) {
+    const Expr *LHSExpr = B->getLHS()->IgnoreParens();
+    const Expr *RHSExpr = B->getRHS()->IgnoreParens();
+
+    const IntegerLiteral *IntLiteral = dyn_cast<IntegerLiteral>(LHSExpr);
+    const Expr *BoolExpr = RHSExpr;
+    bool IntFirst = true;
+    if (!IntLiteral) {
+      IntLiteral = dyn_cast<IntegerLiteral>(RHSExpr);
+      BoolExpr = LHSExpr;
+      IntFirst = false;
+    }
+
+    if (!IntLiteral || !BoolExpr->isKnownToHaveBooleanValue())
+      return TryResult();
+
+    llvm::APInt IntValue = IntLiteral->getValue();
+    if ((IntValue == 1) || (IntValue == 0))
+      return TryResult();
+
+    bool IntLarger = IntLiteral->getType()->isUnsignedIntegerType() ||
+                     !IntValue.isNegative();
+
+    BinaryOperatorKind Bok = B->getOpcode();
+    if (Bok == BO_GT || Bok == BO_GE) {
+      // Always true for 10 > bool and bool > -1

@@ -42,7 +42,7 @@ rule CUSTOM_COMMAND
 # Rule for re-running cmake.
 
 rule RERUN_CMAKE
-  command = /Users/max/Library/Android/sdk/cmake/3.22.1/bin/cmake --regenerate-during-build -S/Users/max/research/projects/app/src/main/cpp -B/Users/max/research/projects/app/.cxx/Debug/231a454w/x86
+  command = /Users/max/Library/Android/sdk/cmake/3.22.1/bin/cmake --regenerate-during-build -S/Users/max/research/projects/kotlin/zipper/app/src/main/cpp -B/Users/max/research/projects/kotlin/zipper/app/.cxx/Debug/231a454w/x86
   description = Re-running CMake...
   generator = 1
 

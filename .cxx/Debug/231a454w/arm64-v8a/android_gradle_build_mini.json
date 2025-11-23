@@ -1,26 +1,33 @@
 {
   "buildFiles": [
-    "/Users/max/research/projects/app/src/main/cpp/CMakeLists.txt"
+    "/Users/max/research/projects/kotlin/zipper/app/src/main/cpp/CMakeLists.txt",
+    "/Users/max/research/projects/kotlin/zipper/app/src/main/cpp/lzw/debug_utils/CMakeLists.txt"
   ],
   "cleanCommandsComponents": [
     [
       "/Users/max/Library/Android/sdk/cmake/3.22.1/bin/ninja",
       "-C",
-      "/Users/max/research/projects/app/.cxx/Debug/231a454w/arm64-v8a",
+      "/Users/max/research/projects/kotlin/zipper/app/.cxx/Debug/231a454w/arm64-v8a",
       "clean"
     ]
   ],
   "buildTargetsCommandComponents": [
     "/Users/max/Library/Android/sdk/cmake/3.22.1/bin/ninja",
     "-C",
-    "/Users/max/research/projects/app/.cxx/Debug/231a454w/arm64-v8a",
+    "/Users/max/research/projects/kotlin/zipper/app/.cxx/Debug/231a454w/arm64-v8a",
     "{LIST_OF_TARGETS_TO_BUILD}"
   ],
   "libraries": {
     "zipper::@6890427a1f51a3e7e1df": {
       "artifactName": "zipper",
       "abi": "arm64-v8a",
-      "output": "/Users/max/research/projects/app/build/intermediates/cxx/Debug/231a454w/obj/arm64-v8a/libzipper.so",
+      "output": "/Users/max/research/projects/kotlin/zipper/app/build/intermediates/cxx/Debug/231a454w/obj/arm64-v8a/libzipper.so",
+      "runtimeFiles": []
+    },
+    "debug_utils::@d80edf199b73cbca0ae4": {
+      "artifactName": "debug_utils",
+      "abi": "arm64-v8a",
+      "output": "/Users/max/research/projects/kotlin/zipper/app/.cxx/Debug/231a454w/arm64-v8a/lzw/debug_utils/libdebug_utils.a",
       "runtimeFiles": []
     }
   }

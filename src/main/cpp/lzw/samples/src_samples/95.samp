@@ -1,0 +1,50 @@
+    ContinueJumpTarget.block->setLoopTarget(S);
+
+    // Finish up the increment block and prepare to start the loop body.
+    assert(Block);
+    if (badCFG)
+      return nullptr;
+    Block = nullptr;
+
+    // Add implicit scope and dtors for loop variable.
+    addLocalScopeAndDtors(S->getLoopVarStmt());
+
+    // If body is not a compound statement create implicit scope
+    // and add destructors.
+    if (!isa<CompoundStmt>(S->getBody()))
+      addLocalScopeAndDtors(S->getBody());
+
+    // Populate a new block to contain the loop body and loop variable.
+    addStmt(S->getBody());
+
+    if (badCFG)
+      return nullptr;
+    CFGBlock *LoopVarStmtBlock = addStmt(S->getLoopVarStmt());
+    if (badCFG)
+      return nullptr;
+
+    // This new body block is a successor to our condition block.
+    addSuccessor(ConditionBlock,
+                 KnownVal.isFalse() ? nullptr : LoopVarStmtBlock);
+  }
+
+  // Link up the condition block with the code that follows the loop (the
+  // false branch).
+  addSuccessor(ConditionBlock, KnownVal.isTrue() ? nullptr : LoopSuccessor);
+
+  // Add the initialization statements.
+  Block = createBlock();
+  addStmt(S->getBeginStmt());
+  addStmt(S->getEndStmt());
+  CFGBlock *Head = addStmt(S->getRangeStmt());
+  if (S->getInit())
+    Head = addStmt(S->getInit());
+  return Head;
+}
+
+CFGBlock *CFGBuilder::VisitExprWithCleanups(ExprWithCleanups *E,
+    AddStmtChoice asc, bool ExternallyDestructed) {
+  if (BuildOpts.AddTemporaryDtors) {
+    // If adding implicit destructors visit the full expression for adding
+    // destructors of temporaries.
+    TempDtorContext Context;

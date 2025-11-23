@@ -1,0 +1,50 @@
+      }
+  }
+}
+
+/// createOrReuseLocalScope - If Scope is NULL create new LocalScope. Either
+/// way return valid LocalScope object.
+LocalScope* CFGBuilder::createOrReuseLocalScope(LocalScope* Scope) {
+  if (Scope)
+    return Scope;
+  llvm::BumpPtrAllocator &alloc = cfg->getAllocator();
+  return new (alloc) LocalScope(BumpVectorContext(alloc), ScopePos);
+}
+
+/// addLocalScopeForStmt - Add LocalScope to local scopes tree for statement
+/// that should create implicit scope (e.g. if/else substatements).
+void CFGBuilder::addLocalScopeForStmt(Stmt *S) {
+  if (!BuildOpts.AddImplicitDtors && !BuildOpts.AddLifetime &&
+      !BuildOpts.AddScopes)
+    return;
+
+  LocalScope *Scope = nullptr;
+
+  // For compound statement we will be creating explicit scope.
+  if (CompoundStmt *CS = dyn_cast<CompoundStmt>(S)) {
+    for (auto *BI : CS->body()) {
+      Stmt *SI = BI->stripLabelLikeStatements();
+      if (DeclStmt *DS = dyn_cast<DeclStmt>(SI))
+        Scope = addLocalScopeForDeclStmt(DS, Scope);
+    }
+    return;
+  }
+
+  // For any other statement scope will be implicit and as such will be
+  // interesting only for DeclStmt.
+  if (DeclStmt *DS = dyn_cast<DeclStmt>(S->stripLabelLikeStatements()))
+    addLocalScopeForDeclStmt(DS);
+}
+
+/// addLocalScopeForDeclStmt - Add LocalScope for declaration statement. Will
+/// reuse Scope if not NULL.
+LocalScope* CFGBuilder::addLocalScopeForDeclStmt(DeclStmt *DS,
+                                                 LocalScope* Scope) {
+  if (!BuildOpts.AddImplicitDtors && !BuildOpts.AddLifetime &&
+      !BuildOpts.AddScopes)
+    return Scope;
+
+  for (auto *DI : DS->decls())
+    if (VarDecl *VD = dyn_cast<VarDecl>(DI))
+      Scope = addLocalScopeForVarDecl(VD, Scope);
+  return Scope;

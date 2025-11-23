@@ -1,0 +1,50 @@
+    return std::nullopt;
+  }
+
+  // Use the most recent declaration.
+  if (!IsMostRecent && !isa<NamespaceDecl>(ND)) {
+    const NamedDecl *MostRecent = ND->getMostRecentDecl();
+    if (MostRecent != ND)
+      return getExplicitVisibilityAux(MostRecent, kind, true);
+  }
+
+  if (const auto *Var = dyn_cast<VarDecl>(ND)) {
+    if (Var->isStaticDataMember()) {
+      VarDecl *InstantiatedFrom = Var->getInstantiatedFromStaticDataMember();
+      if (InstantiatedFrom)
+        return getVisibilityOf(InstantiatedFrom, kind);
+    }
+
+    if (const auto *VTSD = dyn_cast<VarTemplateSpecializationDecl>(Var))
+      return getVisibilityOf(VTSD->getSpecializedTemplate()->getTemplatedDecl(),
+                             kind);
+
+    return std::nullopt;
+  }
+  // Also handle function template specializations.
+  if (const auto *fn = dyn_cast<FunctionDecl>(ND)) {
+    // If the function is a specialization of a template with an
+    // explicit visibility attribute, use that.
+    if (FunctionTemplateSpecializationInfo *templateInfo
+          = fn->getTemplateSpecializationInfo())
+      return getVisibilityOf(templateInfo->getTemplate()->getTemplatedDecl(),
+                             kind);
+
+    // If the function is a member of a specialization of a class template
+    // and the corresponding decl has explicit visibility, use that.
+    FunctionDecl *InstantiatedFrom = fn->getInstantiatedFromMemberFunction();
+    if (InstantiatedFrom)
+      return getVisibilityOf(InstantiatedFrom, kind);
+
+    return std::nullopt;
+  }
+
+  // The visibility of a template is stored in the templated decl.
+  if (const auto *TD = dyn_cast<TemplateDecl>(ND))
+    return getVisibilityOf(TD->getTemplatedDecl(), kind);
+
+  return std::nullopt;
+}
+
+std::optional<Visibility>
+NamedDecl::getExplicitVisibility(ExplicitVisibilityKind kind) const {

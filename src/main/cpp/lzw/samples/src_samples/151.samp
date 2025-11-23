@@ -1,0 +1,50 @@
+#include "llvm/ADT/StringSet.h"
+#include "llvm/ADT/StringSwitch.h"
+#include "llvm/Support/CrashRecoveryContext.h"
+#include "llvm/Support/FileSystem.h"
+#include "llvm/Support/Path.h"
+#include "llvm/Support/PrettyStackTrace.h"
+#include "llvm/Support/Program.h"
+#include "llvm/Support/raw_ostream.h"
+#include <algorithm>
+#include <cassert>
+#include <cstddef>
+#include <string>
+#include <system_error>
+#include <utility>
+
+using namespace clang;
+using namespace driver;
+
+Command::Command(const Action &Source, const Tool &Creator,
+                 ResponseFileSupport ResponseSupport, const char *Executable,
+                 const llvm::opt::ArgStringList &Arguments,
+                 ArrayRef<InputInfo> Inputs, ArrayRef<InputInfo> Outputs,
+                 const char *PrependArg)
+    : Source(Source), Creator(Creator), ResponseSupport(ResponseSupport),
+      Executable(Executable), PrependArg(PrependArg), Arguments(Arguments) {
+  for (const auto &II : Inputs)
+    if (II.isFilename())
+      InputInfoList.push_back(II);
+  for (const auto &II : Outputs)
+    if (II.isFilename())
+      OutputFilenames.push_back(II.getFilename());
+}
+
+/// Check if the compiler flag in question should be skipped when
+/// emitting a reproducer. Also track how many arguments it has and if the
+/// option is some kind of include path.
+static bool skipArgs(const char *Flag, bool HaveCrashVFS, int &SkipNum,
+                     bool &IsInclude) {
+  SkipNum = 2;
+  // These flags are all of the form -Flag <Arg> and are treated as two
+  // arguments.  Therefore, we need to skip the flag and the next argument.
+  bool ShouldSkip = llvm::StringSwitch<bool>(Flag)
+    .Cases("-MF", "-MT", "-MQ", "-serialize-diagnostic-file", true)
+    .Cases("-o", "-dependency-file", true)
+    .Cases("-fdebug-compilation-dir", "-diagnostic-log-file", true)
+    .Cases("-dwarf-debug-flags", "-ivfsoverlay", true)
+    .Default(false);
+  if (ShouldSkip)
+    return true;
+

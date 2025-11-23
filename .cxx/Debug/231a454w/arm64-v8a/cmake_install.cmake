@@ -1,4 +1,4 @@
-# Install script for directory: /Users/max/research/projects/app/src/main/cpp
+# Install script for directory: /Users/max/research/projects/kotlin/zipper/app/src/main/cpp
 
 # Set the install prefix
 if(NOT DEFINED CMAKE_INSTALL_PREFIX)
@@ -42,6 +42,11 @@ if(NOT DEFINED CMAKE_OBJDUMP)
   set(CMAKE_OBJDUMP "/Users/max/Library/Android/sdk/ndk/27.0.12077973/toolchains/llvm/prebuilt/darwin-x86_64/bin/llvm-objdump")
 endif()
 
+if(NOT CMAKE_INSTALL_LOCAL_ONLY)
+  # Include the install script for the subdirectory.
+  include("/Users/max/research/projects/kotlin/zipper/app/.cxx/Debug/231a454w/arm64-v8a/lzw/debug_utils/cmake_install.cmake")
+endif()
+
 if(CMAKE_INSTALL_COMPONENT)
   set(CMAKE_INSTALL_MANIFEST "install_manifest_${CMAKE_INSTALL_COMPONENT}.txt")
 else()
@@ -50,5 +55,5 @@ endif()
 
 string(REPLACE ";" "\n" CMAKE_INSTALL_MANIFEST_CONTENT
        "${CMAKE_INSTALL_MANIFEST_FILES}")
-file(WRITE "/Users/max/research/projects/app/.cxx/Debug/231a454w/arm64-v8a/${CMAKE_INSTALL_MANIFEST}"
+file(WRITE "/Users/max/research/projects/kotlin/zipper/app/.cxx/Debug/231a454w/arm64-v8a/${CMAKE_INSTALL_MANIFEST}"
      "${CMAKE_INSTALL_MANIFEST_CONTENT}")

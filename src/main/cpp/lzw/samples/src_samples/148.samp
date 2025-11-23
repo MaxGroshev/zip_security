@@ -1,0 +1,50 @@
+  SmallVector<std::pair<StringRef, SarifArtifact>, 0> Vec;
+  for (const auto &[K, V] : CurrentArtifacts)
+    Vec.emplace_back(K, V);
+  llvm::sort(Vec, llvm::less_first());
+  for (const auto &[_, A] : Vec) {
+    json::Object Loc{{"uri", A.Location.URI}};
+    if (A.Location.Index.has_value()) {
+      Loc["index"] = static_cast<int64_t>(*A.Location.Index);
+    }
+    json::Object Artifact;
+    Artifact["location"] = std::move(Loc);
+    if (A.Length.has_value())
+      Artifact["length"] = static_cast<int64_t>(*A.Length);
+    if (!A.Roles.empty())
+      Artifact["roles"] = json::Array(A.Roles);
+    if (!A.MimeType.empty())
+      Artifact["mimeType"] = A.MimeType;
+    if (A.Offset.has_value())
+      Artifact["offset"] = *A.Offset;
+    Artifacts->push_back(json::Value(std::move(Artifact)));
+  }
+
+  // Clear, reset temporaries before next run.
+  reset();
+
+  // Mark the document as closed.
+  Closed = true;
+}
+
+json::Array
+SarifDocumentWriter::createThreadFlows(ArrayRef<ThreadFlow> ThreadFlows) {
+  json::Object Ret{{"locations", json::Array{}}};
+  json::Array Locs;
+  for (const auto &ThreadFlow : ThreadFlows) {
+    json::Object PLoc = createPhysicalLocation(ThreadFlow.Range);
+    json::Object Loc = createLocation(std::move(PLoc), ThreadFlow.Message);
+    Locs.emplace_back(
+        createThreadFlowLocation(std::move(Loc), ThreadFlow.Importance));
+  }
+  Ret["locations"] = std::move(Locs);
+  return json::Array{std::move(Ret)};
+}
+
+json::Object
+SarifDocumentWriter::createCodeFlow(ArrayRef<ThreadFlow> ThreadFlows) {
+  return json::Object{{"threadFlows", createThreadFlows(ThreadFlows)}};
+}
+
+void SarifDocumentWriter::createRun(StringRef ShortToolName,
+                                    StringRef LongToolName,

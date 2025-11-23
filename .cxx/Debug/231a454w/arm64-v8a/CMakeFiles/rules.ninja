@@ -39,10 +39,29 @@ rule CUSTOM_COMMAND
 
 
 #############################################
+# Rule for compiling CXX files.
+
+rule CXX_COMPILER__debug_utils_Debug
+  depfile = $DEP_FILE
+  deps = gcc
+  command = /Users/max/Library/Android/sdk/ndk/27.0.12077973/toolchains/llvm/prebuilt/darwin-x86_64/bin/clang++ --target=aarch64-none-linux-android26 --sysroot=/Users/max/Library/Android/sdk/ndk/27.0.12077973/toolchains/llvm/prebuilt/darwin-x86_64/sysroot $DEFINES $INCLUDES $FLAGS -MD -MT $out -MF $DEP_FILE -o $out -c $in
+  description = Building CXX object $out
+
+
+#############################################
+# Rule for linking CXX static library.
+
+rule CXX_STATIC_LIBRARY_LINKER__debug_utils_Debug
+  command = $PRE_LINK && /Users/max/Library/Android/sdk/cmake/3.22.1/bin/cmake -E rm -f $TARGET_FILE && /Users/max/Library/Android/sdk/ndk/27.0.12077973/toolchains/llvm/prebuilt/darwin-x86_64/bin/llvm-ar qc $TARGET_FILE $LINK_FLAGS $in && /Users/max/Library/Android/sdk/ndk/27.0.12077973/toolchains/llvm/prebuilt/darwin-x86_64/bin/llvm-ranlib $TARGET_FILE && /Users/max/Library/Android/sdk/cmake/3.22.1/bin/cmake -E touch $TARGET_FILE && $POST_BUILD
+  description = Linking CXX static library $TARGET_FILE
+  restat = $RESTAT
+
+
+#############################################
 # Rule for re-running cmake.
 
 rule RERUN_CMAKE
-  command = /Users/max/Library/Android/sdk/cmake/3.22.1/bin/cmake --regenerate-during-build -S/Users/max/research/projects/app/src/main/cpp -B/Users/max/research/projects/app/.cxx/Debug/231a454w/arm64-v8a
+  command = /Users/max/Library/Android/sdk/cmake/3.22.1/bin/cmake --regenerate-during-build -S/Users/max/research/projects/kotlin/zipper/app/src/main/cpp -B/Users/max/research/projects/kotlin/zipper/app/.cxx/Debug/231a454w/arm64-v8a
   description = Re-running CMake...
   generator = 1
 

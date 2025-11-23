@@ -1,0 +1,50 @@
+    FormatToken *MacroCallLParen;
+  };
+
+  // Keeps track of the lines into which the opening brace/parenthesis &
+  // argument separating commas for each level in the macro call go in order to
+  // put the corresponding closing brace/parenthesis into the same line in the
+  // output and keep track of which parents in the expanded token stream map to
+  // which tokens in the reconstructed stream.
+  // When an opening brace/parenthesis has children, we want the structure of
+  // the output line to be:
+  // |- MACRO
+  // |- (
+  // |  \- <argument>
+  // |- ,
+  // |  \- <argument>
+  // \- )
+  llvm::SmallVector<MacroCallState> MacroCallStructure;
+
+  // Maps from identifier of the macro call to an unwrapped line containing
+  // all tokens of the macro call.
+  const llvm::DenseMap<FormatToken *, std::unique_ptr<UnwrappedLine>>
+      &IdToReconstructed;
+};
+
+} // namespace format
+} // namespace clang
+
+#endif
+//===--- ExecuteCompilerInvocation.cpp ------------------------------------===//
+//
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+//
+//===----------------------------------------------------------------------===//
+//
+// This file holds ExecuteCompilerInvocation(). It is split into its own file to
+// minimize the impact of pulling in essentially everything else in Flang.
+//
+//===----------------------------------------------------------------------===//
+//
+// Coding style: https://mlir.llvm.org/getting_started/DeveloperGuide/
+//
+//===----------------------------------------------------------------------===//
+
+#include "flang/Frontend/CompilerInstance.h"
+#include "flang/Frontend/FrontendActions.h"
+#include "flang/Frontend/FrontendPluginRegistry.h"
+
+#include "mlir/IR/AsmState.h"

@@ -1,0 +1,50 @@
+    return;
+
+  SmallVector<Module *, 2> Stack;
+  Stack.push_back(this);
+  while (!Stack.empty()) {
+    Module *Current = Stack.back();
+    Stack.pop_back();
+
+    if (!needUpdate(Current))
+      continue;
+
+    Current->IsAvailable = false;
+    Current->IsUnimportable |= Unimportable;
+    for (auto *Submodule : Current->submodules()) {
+      if (needUpdate(Submodule))
+        Stack.push_back(Submodule);
+    }
+  }
+}
+
+Module *Module::findSubmodule(StringRef Name) const {
+  llvm::StringMap<unsigned>::const_iterator Pos = SubModuleIndex.find(Name);
+  if (Pos == SubModuleIndex.end())
+    return nullptr;
+
+  return SubModules[Pos->getValue()];
+}
+
+Module *Module::findOrInferSubmodule(StringRef Name) {
+  llvm::StringMap<unsigned>::const_iterator Pos = SubModuleIndex.find(Name);
+  if (Pos != SubModuleIndex.end())
+    return SubModules[Pos->getValue()];
+  if (!InferSubmodules)
+    return nullptr;
+  Module *Result = new Module(Name, SourceLocation(), this, false, InferExplicitSubmodules, 0);
+  Result->InferExplicitSubmodules = InferExplicitSubmodules;
+  Result->InferSubmodules = InferSubmodules;
+  Result->InferExportWildcard = InferExportWildcard;
+  if (Result->InferExportWildcard)
+    Result->Exports.push_back(Module::ExportDecl(nullptr, true));
+  return Result;
+}
+
+Module *Module::getGlobalModuleFragment() const {
+  assert(isNamedModuleUnit() && "We should only query the global module "
+                                "fragment from the C++20 Named modules");
+
+  for (auto *SubModule : SubModules)
+    if (SubModule->isExplicitGlobalModule())
+      return SubModule;

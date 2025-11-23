@@ -1,0 +1,50 @@
+
+RecordDecl::RecordDecl(Kind DK, TagKind TK, const ASTContext &C,
+                       DeclContext *DC, SourceLocation StartLoc,
+                       SourceLocation IdLoc, IdentifierInfo *Id,
+                       RecordDecl *PrevDecl)
+    : TagDecl(DK, TK, C, DC, IdLoc, Id, PrevDecl, StartLoc) {
+  assert(classof(static_cast<Decl *>(this)) && "Invalid Kind!");
+  setHasFlexibleArrayMember(false);
+  setAnonymousStructOrUnion(false);
+  setHasObjectMember(false);
+  setHasVolatileMember(false);
+  setHasLoadedFieldsFromExternalStorage(false);
+  setNonTrivialToPrimitiveDefaultInitialize(false);
+  setNonTrivialToPrimitiveCopy(false);
+  setNonTrivialToPrimitiveDestroy(false);
+  setHasNonTrivialToPrimitiveDefaultInitializeCUnion(false);
+  setHasNonTrivialToPrimitiveDestructCUnion(false);
+  setHasNonTrivialToPrimitiveCopyCUnion(false);
+  setParamDestroyedInCallee(false);
+  setArgPassingRestrictions(RecordArgPassingKind::CanPassInRegs);
+  setIsRandomized(false);
+  setODRHash(0);
+}
+
+RecordDecl *RecordDecl::Create(const ASTContext &C, TagKind TK, DeclContext *DC,
+                               SourceLocation StartLoc, SourceLocation IdLoc,
+                               IdentifierInfo *Id, RecordDecl* PrevDecl) {
+  RecordDecl *R = new (C, DC) RecordDecl(Record, TK, C, DC,
+                                         StartLoc, IdLoc, Id, PrevDecl);
+  R->setMayHaveOutOfDateDef(C.getLangOpts().Modules);
+
+  C.getTypeDeclType(R, PrevDecl);
+  return R;
+}
+
+RecordDecl *RecordDecl::CreateDeserialized(const ASTContext &C, unsigned ID) {
+  RecordDecl *R = new (C, ID)
+      RecordDecl(Record, TagTypeKind::Struct, C, nullptr, SourceLocation(),
+                 SourceLocation(), nullptr, nullptr);
+  R->setMayHaveOutOfDateDef(C.getLangOpts().Modules);
+  return R;
+}
+
+bool RecordDecl::isInjectedClassName() const {
+  return isImplicit() && getDeclName() && getDeclContext()->isRecord() &&
+    cast<RecordDecl>(getDeclContext())->getDeclName() == getDeclName();
+}
+
+bool RecordDecl::isLambda() const {
+  if (auto RD = dyn_cast<CXXRecordDecl>(this))

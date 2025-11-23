@@ -1,0 +1,50 @@
+    if (Function->getCanonicalDecl()->getStorageClass() == SC_Static)
+      return LinkageInfo::internal();
+
+    LinkageInfo LV;
+    if (!hasExplicitVisibilityAlready(computation)) {
+      if (std::optional<Visibility> Vis =
+              getExplicitVisibility(Function, computation))
+        LV.mergeVisibility(*Vis, true);
+    }
+
+    // Note that Sema::MergeCompatibleFunctionDecls already takes care of
+    // merging storage classes and visibility attributes, so we don't have to
+    // look at previous decls in here.
+
+    return LV;
+  }
+
+  if (const auto *Var = dyn_cast<VarDecl>(D)) {
+    if (Var->hasExternalStorage()) {
+      if (Var->isInAnonymousNamespace() && !isFirstInExternCContext(Var))
+        return LinkageInfo::internal();
+
+      LinkageInfo LV;
+      if (Var->getStorageClass() == SC_PrivateExtern)
+        LV.mergeVisibility(HiddenVisibility, true);
+      else if (!hasExplicitVisibilityAlready(computation)) {
+        if (std::optional<Visibility> Vis =
+                getExplicitVisibility(Var, computation))
+          LV.mergeVisibility(*Vis, true);
+      }
+
+      if (const VarDecl *Prev = Var->getPreviousDecl()) {
+        LinkageInfo PrevLV = getLVForDecl(Prev, computation);
+        if (PrevLV.getLinkage() != Linkage::Invalid)
+          LV.setLinkage(PrevLV.getLinkage());
+        LV.mergeVisibility(PrevLV);
+      }
+
+      return LV;
+    }
+
+    if (!Var->isStaticLocal())
+      return LinkageInfo::none();
+  }
+
+  ASTContext &Context = D->getASTContext();
+  if (!Context.getLangOpts().CPlusPlus)
+    return LinkageInfo::none();
+
+  const Decl *OuterD = getOutermostFuncOrBlockContext(D);

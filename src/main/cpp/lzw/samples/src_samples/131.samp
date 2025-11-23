@@ -1,0 +1,50 @@
+    return false;
+
+  // FIXME: All missing headers are listed on the top-level module. Should we
+  // just look there?
+  for (const Module *Current = this; Current; Current = Current->Parent) {
+    if (!Current->MissingHeaders.empty()) {
+      MissingHeader = Current->MissingHeaders.front();
+      return false;
+    }
+  }
+
+  llvm_unreachable("could not find a reason why module is unavailable");
+}
+
+bool Module::isSubModuleOf(const Module *Other) const {
+  for (auto *Parent = this; Parent; Parent = Parent->Parent) {
+    if (Parent == Other)
+      return true;
+  }
+  return false;
+}
+
+const Module *Module::getTopLevelModule() const {
+  const Module *Result = this;
+  while (Result->Parent)
+    Result = Result->Parent;
+
+  return Result;
+}
+
+static StringRef getModuleNameFromComponent(
+    const std::pair<std::string, SourceLocation> &IdComponent) {
+  return IdComponent.first;
+}
+
+static StringRef getModuleNameFromComponent(StringRef R) { return R; }
+
+template<typename InputIter>
+static void printModuleId(raw_ostream &OS, InputIter Begin, InputIter End,
+                          bool AllowStringLiterals = true) {
+  for (InputIter It = Begin; It != End; ++It) {
+    if (It != Begin)
+      OS << ".";
+
+    StringRef Name = getModuleNameFromComponent(*It);
+    if (!AllowStringLiterals || isValidAsciiIdentifier(Name))
+      OS << Name;
+    else {
+      OS << '"';
+      OS.write_escaped(Name);

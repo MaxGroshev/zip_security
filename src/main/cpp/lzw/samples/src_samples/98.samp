@@ -1,0 +1,50 @@
+  return VisitChildren(C);
+}
+
+CFGBlock *CFGBuilder::VisitImplicitCastExpr(ImplicitCastExpr *E,
+                                            AddStmtChoice asc) {
+  if (asc.alwaysAdd(*this, E)) {
+    autoCreateBlock();
+    appendStmt(Block, E);
+  }
+
+  if (E->getCastKind() == CK_IntegralToBoolean)
+    tryEvaluateBool(E->getSubExpr()->IgnoreParens());
+
+  return Visit(E->getSubExpr(), AddStmtChoice());
+}
+
+CFGBlock *CFGBuilder::VisitConstantExpr(ConstantExpr *E, AddStmtChoice asc) {
+  return Visit(E->getSubExpr(), AddStmtChoice());
+}
+
+CFGBlock *CFGBuilder::VisitIndirectGotoStmt(IndirectGotoStmt *I) {
+  // Lazily create the indirect-goto dispatch block if there isn't one already.
+  CFGBlock *IBlock = cfg->getIndirectGotoBlock();
+
+  if (!IBlock) {
+    IBlock = createBlock(false);
+    cfg->setIndirectGotoBlock(IBlock);
+  }
+
+  // IndirectGoto is a control-flow statement.  Thus we stop processing the
+  // current block and create a new one.
+  if (badCFG)
+    return nullptr;
+
+  Block = createBlock(false);
+  Block->setTerminator(I);
+  addSuccessor(Block, IBlock);
+  return addStmt(I->getTarget());
+}
+
+CFGBlock *CFGBuilder::VisitForTemporaryDtors(Stmt *E, bool ExternallyDestructed,
+                                             TempDtorContext &Context) {
+  assert(BuildOpts.AddImplicitDtors && BuildOpts.AddTemporaryDtors);
+
+tryAgain:
+  if (!E) {
+    badCFG = true;
+    return nullptr;
+  }
+  switch (E->getStmtClass()) {

@@ -1,0 +1,50 @@
+  }
+
+  bool handleDecl(const Decl *D, raw_ostream &OS) {
+    DeclMapTy::iterator I = DeclMap.find(D);
+
+    if (I == DeclMap.end())
+      return false;
+
+    if (currentBlock >= 0 && I->second.first == (unsigned) currentBlock
+                          && I->second.second == currStmt) {
+      return false;
+    }
+
+    OS << "[B" << I->second.first << "." << I->second.second << "]";
+    return true;
+  }
+};
+
+class CFGBlockTerminatorPrint
+    : public StmtVisitor<CFGBlockTerminatorPrint,void> {
+  raw_ostream &OS;
+  StmtPrinterHelper* Helper;
+  PrintingPolicy Policy;
+
+public:
+  CFGBlockTerminatorPrint(raw_ostream &os, StmtPrinterHelper* helper,
+                          const PrintingPolicy &Policy)
+      : OS(os), Helper(helper), Policy(Policy) {
+    this->Policy.IncludeNewlines = false;
+  }
+
+  void VisitIfStmt(IfStmt *I) {
+    OS << "if ";
+    if (Stmt *C = I->getCond())
+      C->printPretty(OS, Helper, Policy);
+  }
+
+  // Default case.
+  void VisitStmt(Stmt *Terminator) {
+    Terminator->printPretty(OS, Helper, Policy);
+  }
+
+  void VisitDeclStmt(DeclStmt *DS) {
+    VarDecl *VD = cast<VarDecl>(DS->getSingleDecl());
+    OS << "static init " << VD->getName();
+  }
+
+  void VisitForStmt(ForStmt *F) {
+    OS << "for (" ;
+    if (F->getInit())

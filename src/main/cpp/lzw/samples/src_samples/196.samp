@@ -1,0 +1,50 @@
+  }
+}
+
+namespace {
+/// Used to serialize the on-disk typedef table.
+class TypedefTableInfo
+    : public CommonTypeTableInfo<TypedefTableInfo, TypedefInfo> {
+public:
+  unsigned getUnversionedInfoSize(const TypedefInfo &TI) {
+    return 1 + getCommonTypeInfoSize(TI);
+  }
+
+  void emitUnversionedInfo(raw_ostream &OS, const TypedefInfo &TI) {
+    llvm::support::endian::Writer writer(OS, llvm::endianness::little);
+
+    uint8_t Flags = 0;
+    if (auto swiftWrapper = TI.SwiftWrapper)
+      Flags |= static_cast<uint8_t>(*swiftWrapper) + 1;
+
+    writer.write<uint8_t>(Flags);
+
+    emitCommonTypeInfo(OS, TI);
+  }
+};
+} // namespace
+
+void APINotesWriter::Implementation::writeTypedefBlock(
+    llvm::BitstreamWriter &Stream) {
+  llvm::BCBlockRAII Scope(Stream, TYPEDEF_BLOCK_ID, 3);
+
+  if (Typedefs.empty())
+    return;
+
+  {
+    llvm::SmallString<4096> HashTableBlob;
+    uint32_t Offset;
+    {
+      llvm::OnDiskChainedHashTableGenerator<TypedefTableInfo> Generator;
+      for (auto &T : Typedefs)
+        Generator.insert(T.first, T.second);
+
+      llvm::raw_svector_ostream BlobStream(HashTableBlob);
+      // Make sure that no bucket is at offset 0
+      llvm::support::endian::write<uint32_t>(BlobStream, 0,
+                                             llvm::endianness::little);
+      Offset = Generator.Emit(BlobStream);
+    }
+
+    typedef_block::TypedefDataLayout TypedefData(Stream);
+    TypedefData.emit(Scratch, Offset, HashTableBlob);

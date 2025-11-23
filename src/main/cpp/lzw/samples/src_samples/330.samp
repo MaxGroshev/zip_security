@@ -1,0 +1,50 @@
+  // ignore declarations marked as invalid since 'getASTRecordLayout()' asserts
+  // on that.
+  if (Ctx.getLangOpts().DumpRecordLayoutsComplete && !isDependentType() &&
+      !isInvalidDecl())
+    (void)Ctx.getASTRecordLayout(this);
+}
+
+/// isMsStruct - Get whether or not this record uses ms_struct layout.
+/// This which can be turned on with an attribute, pragma, or the
+/// -mms-bitfields command-line option.
+bool RecordDecl::isMsStruct(const ASTContext &C) const {
+  return hasAttr<MSStructAttr>() || C.getLangOpts().MSBitfields == 1;
+}
+
+void RecordDecl::reorderDecls(const SmallVectorImpl<Decl *> &Decls) {
+  std::tie(FirstDecl, LastDecl) = DeclContext::BuildDeclChain(Decls, false);
+  LastDecl->NextInContextAndBits.setPointer(nullptr);
+  setIsRandomized(true);
+}
+
+void RecordDecl::LoadFieldsFromExternalStorage() const {
+  ExternalASTSource *Source = getASTContext().getExternalSource();
+  assert(hasExternalLexicalStorage() && Source && "No external storage?");
+
+  // Notify that we have a RecordDecl doing some initialization.
+  ExternalASTSource::Deserializing TheFields(Source);
+
+  SmallVector<Decl*, 64> Decls;
+  setHasLoadedFieldsFromExternalStorage(true);
+  Source->FindExternalLexicalDecls(this, [](Decl::Kind K) {
+    return FieldDecl::classofKind(K) || IndirectFieldDecl::classofKind(K);
+  }, Decls);
+
+#ifndef NDEBUG
+  // Check that all decls we got were FieldDecls.
+  for (unsigned i=0, e=Decls.size(); i != e; ++i)
+    assert(isa<FieldDecl>(Decls[i]) || isa<IndirectFieldDecl>(Decls[i]));
+#endif
+
+  if (Decls.empty())
+    return;
+
+  auto [ExternalFirst, ExternalLast] =
+      BuildDeclChain(Decls,
+                     /*FieldsAlreadyLoaded=*/false);
+  ExternalLast->NextInContextAndBits.setPointer(FirstDecl);
+  FirstDecl = ExternalFirst;
+  if (!LastDecl)
+    LastDecl = ExternalLast;
+}

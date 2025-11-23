@@ -1,0 +1,50 @@
+    //      translation unit.
+    // and [basic.link]p10:
+    //   ...the types specified by all declarations referring to a
+    //   given variable or function shall be identical...
+    // C does not have an equivalent rule.
+    //
+    // Ignore this if we've got an explicit attribute;  the user
+    // probably knows what they're doing.
+    //
+    // Note that we don't want to make the variable non-external
+    // because of this, but unique-external linkage suits us.
+
+    if (Context.getLangOpts().CPlusPlus && !isFirstInExternCContext(Var) &&
+        !IgnoreVarTypeLinkage) {
+      LinkageInfo TypeLV = getLVForType(*Var->getType(), computation);
+      if (!isExternallyVisible(TypeLV.getLinkage()))
+        return LinkageInfo::uniqueExternal();
+      if (!LV.isVisibilityExplicit())
+        LV.mergeVisibility(TypeLV);
+    }
+
+    if (Var->getStorageClass() == SC_PrivateExtern)
+      LV.mergeVisibility(HiddenVisibility, true);
+
+    // Note that Sema::MergeVarDecl already takes care of implementing
+    // C99 6.2.2p4 and propagating the visibility attribute, so we don't have
+    // to do it here.
+
+    // As per function and class template specializations (below),
+    // consider LV for the template and template arguments.  We're at file
+    // scope, so we do not need to worry about nested specializations.
+    if (const auto *spec = dyn_cast<VarTemplateSpecializationDecl>(Var)) {
+      mergeTemplateLV(LV, spec, computation);
+    }
+
+  //     - a function; or
+  } else if (const auto *Function = dyn_cast<FunctionDecl>(D)) {
+    // In theory, we can modify the function's LV by the LV of its
+    // type unless it has C linkage (see comment above about variables
+    // for justification).  In practice, GCC doesn't do this, so it's
+    // just too painful to make work.
+
+    if (Function->getStorageClass() == SC_PrivateExtern)
+      LV.mergeVisibility(HiddenVisibility, true);
+
+    // OpenMP target declare device functions are not callable from the host so
+    // they should not be exported from the device image. This applies to all
+    // functions as the host-callable kernel functions are emitted at codegen.
+    if (Context.getLangOpts().OpenMP &&
+        Context.getLangOpts().OpenMPIsTargetDevice &&

@@ -1,0 +1,50 @@
+      llvm::outs() << llvm::sys::path::filename(Arg.getFilename()) << "\n";
+    llvm::outs().flush();
+  }
+}
+
+int Command::Execute(ArrayRef<std::optional<StringRef>> Redirects,
+                     std::string *ErrMsg, bool *ExecutionFailed) const {
+  PrintFileNames();
+
+  SmallVector<const char *, 128> Argv;
+  if (ResponseFile == nullptr) {
+    Argv.push_back(Executable);
+    if (PrependArg)
+      Argv.push_back(PrependArg);
+    Argv.append(Arguments.begin(), Arguments.end());
+    Argv.push_back(nullptr);
+  } else {
+    // If the command is too large, we need to put arguments in a response file.
+    std::string RespContents;
+    llvm::raw_string_ostream SS(RespContents);
+
+    // Write file contents and build the Argv vector
+    writeResponseFile(SS);
+    buildArgvForResponseFile(Argv);
+    Argv.push_back(nullptr);
+    SS.flush();
+
+    // Save the response file in the appropriate encoding
+    if (std::error_code EC = writeFileWithEncoding(
+            ResponseFile, RespContents, ResponseSupport.ResponseEncoding)) {
+      if (ErrMsg)
+        *ErrMsg = EC.message();
+      if (ExecutionFailed)
+        *ExecutionFailed = true;
+      // Return -1 by convention (see llvm/include/llvm/Support/Program.h) to
+      // indicate the requested executable cannot be started.
+      return -1;
+    }
+  }
+
+  std::optional<ArrayRef<StringRef>> Env;
+  std::vector<StringRef> ArgvVectorStorage;
+  if (!Environment.empty()) {
+    assert(Environment.back() == nullptr &&
+           "Environment vector should be null-terminated by now");
+    ArgvVectorStorage = llvm::toStringRefArray(Environment.data());
+    Env = ArrayRef(ArgvVectorStorage);
+  }
+
+  auto Args = llvm::toStringRefArray(Argv.data());

@@ -1,0 +1,50 @@
+    if (!(isInlineSpecified() && getStorageClass() == SC_Extern))
+      return true;
+
+    // If any declaration is 'inline' but not 'extern', then this definition
+    // is externally visible.
+    for (auto *Redecl : redecls()) {
+      if (Redecl->isInlineSpecified() &&
+          Redecl->getStorageClass() != SC_Extern)
+        return true;
+    }
+
+    return false;
+  }
+
+  // The rest of this function is C-only.
+  assert(!Context.getLangOpts().CPlusPlus &&
+         "should not use C inline rules in C++");
+
+  // C99 6.7.4p6:
+  //   [...] If all of the file scope declarations for a function in a
+  //   translation unit include the inline function specifier without extern,
+  //   then the definition in that translation unit is an inline definition.
+  for (auto *Redecl : redecls()) {
+    if (RedeclForcesDefC99(Redecl))
+      return true;
+  }
+
+  // C99 6.7.4p6:
+  //   An inline definition does not provide an external definition for the
+  //   function, and does not forbid an external definition in another
+  //   translation unit.
+  return false;
+}
+
+/// getOverloadedOperator - Which C++ overloaded operator this
+/// function represents, if any.
+OverloadedOperatorKind FunctionDecl::getOverloadedOperator() const {
+  if (getDeclName().getNameKind() == DeclarationName::CXXOperatorName)
+    return getDeclName().getCXXOverloadedOperator();
+  return OO_None;
+}
+
+/// getLiteralIdentifier - The literal suffix identifier this function
+/// represents, if any.
+const IdentifierInfo *FunctionDecl::getLiteralIdentifier() const {
+  if (getDeclName().getNameKind() == DeclarationName::CXXLiteralOperatorName)
+    return getDeclName().getCXXLiteralIdentifier();
+  return nullptr;
+}
+

@@ -1,0 +1,50 @@
+    // All breaks should go to the code following the loop.
+    BreakJumpTarget = JumpTarget(LoopSuccessor, ScopePos);
+
+    // Loop body should end with destructor of Condition variable (if any).
+    addAutomaticObjHandling(ScopePos, LoopBeginScopePos, W);
+
+    // If body is not a compound statement create implicit scope
+    // and add destructors.
+    if (!isa<CompoundStmt>(W->getBody()))
+      addLocalScopeAndDtors(W->getBody());
+
+    // Create the body.  The returned block is the entry to the loop body.
+    BodyBlock = addStmt(W->getBody());
+
+    if (!BodyBlock)
+      BodyBlock = ContinueJumpTarget.block; // can happen for "while(...) ;"
+    else if (Block && badCFG)
+      return nullptr;
+  }
+
+  // Because of short-circuit evaluation, the condition of the loop can span
+  // multiple basic blocks.  Thus we need the "Entry" and "Exit" blocks that
+  // evaluate the condition.
+  CFGBlock *EntryConditionBlock = nullptr, *ExitConditionBlock = nullptr;
+
+  do {
+    Expr *C = W->getCond();
+
+    // Specially handle logical operators, which have a slightly
+    // more optimal CFG representation.
+    if (BinaryOperator *Cond = dyn_cast<BinaryOperator>(C->IgnoreParens()))
+      if (Cond->isLogicalOp()) {
+        std::tie(EntryConditionBlock, ExitConditionBlock) =
+            VisitLogicalOperator(Cond, W, BodyBlock, LoopSuccessor);
+        break;
+      }
+
+    // The default case when not handling logical operators.
+    ExitConditionBlock = createBlock(false);
+    ExitConditionBlock->setTerminator(W);
+
+    // Now add the actual condition to the condition block.
+    // Because the condition itself may contain control-flow, new blocks may
+    // be created.  Thus we update "Succ" after adding the condition.
+    Block = ExitConditionBlock;
+    Block = EntryConditionBlock = addStmt(C);
+
+    // If this block contains a condition variable, add both the condition
+    // variable and initializer to the CFG.
+    if (VarDecl *VD = W->getConditionVariable()) {
