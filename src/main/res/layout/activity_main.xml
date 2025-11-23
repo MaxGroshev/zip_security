@@ -3,59 +3,57 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:gravity="center_horizontal"
-    android:orientation="vertical"
-    android:padding="16dp">
+    android:orientation="vertical">
 
-    <EditText
-        android:id="@+id/etInput"
+    <TextView
+        android:id="@+id/tvChosenFileName"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:hint="Введите текст для сохранения"
-        android:minHeight="98dp" />
+        android:padding="8dp"
+        android:text="Имя файла"
+        android:textSize="18sp" />
+
+    <ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="382dp"
+        android:layout_weight="0">
+
+        <TextView
+            android:id="@+id/tvChosenFileContent"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:padding="16dp"
+            android:text="Содержимое файла..." />
+    </ScrollView>
+
+
+    <ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="102dp"
+        android:layout_weight="0">
+
+        <TextView
+            android:id="@+id/tvResult"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:background="#EEEEEE"
+            android:padding="8dp"
+            android:text="Здесь появится текст после обработки" />
+    </ScrollView>
 
     <Button
-        android:id="@+id/btnSave"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="16dp"
-        android:text="Сохранить в файл" />
-
-    <Button
-        android:id="@+id/btnOpen"
+        android:id="@+id/btnChooseFileForArchiving"
         android:layout_width="181dp"
         android:layout_height="wrap_content"
         android:layout_marginTop="16dp"
-        android:text="Открыть файл" />
-
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="32dp"
-        android:text="Прочитанный текст:"
-        android:textStyle="bold" />
-
-    <TextView
-        android:id="@+id/tvContent"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="8dp"
-        android:background="#EEEEEE"
-        android:padding="8dp"
-        android:text="Здесь появится текст из файла" />
+        android:text="Выбрать файл" />
 
     <Button
-        android:id="@+id/btnProcess"
+        android:id="@+id/btnChooseAction"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginTop="20dp"
-        android:text="Отправить файл в C++" />
+        android:text="Выбрать действие" />
 
-    <TextView
-        android:id="@+id/tvResult"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="8dp"
-        android:background="#EEEEEE"
-        android:padding="8dp"
-        android:text="Здесь появится текст после c++" />
+
 </LinearLayout>

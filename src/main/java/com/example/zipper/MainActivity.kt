@@ -1,4 +1,4 @@
-package com.example.zipper // Укажите свой пакет
+package com.example.zipper
 
 import android.app.Activity
 import android.content.Intent
@@ -8,58 +8,41 @@ import android.widget.Button
 import android.widget.EditText
 import android.widget.TextView
 import android.widget.Toast
-import androidx.activity.result.contract.ActivityResultContracts
+import android.view.LayoutInflater
+import android.widget.RadioGroup
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import androidx.activity.result.contract.ActivityResultContracts
 import java.io.BufferedReader
 import java.io.File
 import java.io.IOException
+import android.database.Cursor
+import android.provider.OpenableColumns
 import java.io.InputStreamReader
 
 class MainActivity : AppCompatActivity() {
 
-    private lateinit var etInput: EditText
     private lateinit var tvContent: TextView
-    private lateinit var btnSave: Button
     private lateinit var btnOpen: Button
-    private lateinit var btnProcess: Button
+    private lateinit var btnChooseAction: Button
     private lateinit var tvResult: TextView
-
-    // Переменная для хранения текста, который мы хотим сохранить
-    private var textToSave: String = ""
+    private lateinit var tvChosenFileName: TextView
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-        // Инициализация View
-        etInput = findViewById(R.id.etInput)
-        tvContent = findViewById(R.id.tvContent)
-        btnSave = findViewById(R.id.btnSave)
-        btnOpen = findViewById(R.id.btnOpen)
-        btnProcess =findViewById(R.id.btnProcess)
+        tvContent = findViewById(R.id.tvChosenFileContent)
+        btnOpen = findViewById(R.id.btnChooseFileForArchiving)
+        btnChooseAction = findViewById(R.id.btnChooseAction)
         tvResult = findViewById(R.id.tvResult)
+        tvChosenFileName = findViewById(R.id.tvChosenFileName)
 
 
-        // Регистрация "контракта" на создание документа
-        val createDocLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
-            if (result.resultCode == Activity.RESULT_OK) {
-                result.data?.data?.let { uri ->
-                    writeFile(uri, textToSave)
-                }
-            }
-        }
-        btnSave.setOnClickListener {
-            textToSave = etInput.text.toString()
-            if (textToSave.isNotEmpty()) {
-                createFile(createDocLauncher)
-            } else {
-                Toast.makeText(this, "Введите текст для сохранения", Toast.LENGTH_SHORT).show()
-            }
+        btnChooseAction.setOnClickListener {
+            showCustomDialog()
         }
 
-        // --- ЛОГИКА ОТКРЫТИЯ ---
-
-        // Регистрация "контракта" на открытие документа
         val openDocLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
             if (result.resultCode == Activity.RESULT_OK) {
                 result.data?.data?.let { uri ->
@@ -67,29 +50,6 @@ class MainActivity : AppCompatActivity() {
                 }
             }
         }
-
-        btnProcess.setOnClickListener {
-            if (!tvContent.getText().toString().isEmpty()) {
-                val sampleData = """
-                    Hellooooo from Android Kotlin and C++!
-                    This file was created using JNI.
-                    Timestamp: ${System.currentTimeMillis()}
-                    Multi-line content works perfectly!
-                """.trimIndent()
-
-                val textAsString: String = tvContent.getText().toString()
-                val encryped_file = File(filesDir, "encrypted.txt")
-                val unencrypted_file = File(filesDir, "unencrypted.txt")
-
-
-                var resultFromCpp = archiveAndSecure(sampleData, encryped_file.absolutePath)
-                resultFromCpp = unarchiveAndOpen(encryped_file.absolutePath)
-                tvResult.text = resultFromCpp
-            } else {
-                tvResult.text = "строка пуста"
-            }
-        }
-
         btnOpen.setOnClickListener {
             openFile(openDocLauncher)
         }
@@ -99,38 +59,74 @@ class MainActivity : AppCompatActivity() {
     private external fun archiveAndSecure(text: String, save_to: String): String
     private external fun unarchiveAndOpen(path_to: String): String
 
-
-    // Вспомогательная функция для чтения файла из папки assets
-    // (Для простоты используем assets, чтобы не возиться с разрешениями Android прямо сейчас)
-    private fun readTextFromFile(fileName: String): String {
-        return try {
-            assets.open(fileName).bufferedReader().use { it.readText() }
-        } catch (e: IOException) {
-            e.printStackTrace()
-            ""
-        }
+    enum class ActionType {
+        UPLOAD,
+        DOWNLOAD,
+        NONE
     }
-    // 1. Запуск системного диалога создания файла
-    private fun createFile(launcher: androidx.activity.result.ActivityResultLauncher<Intent>) {
-        val intent = Intent(Intent.ACTION_CREATE_DOCUMENT).apply {
-            addCategory(Intent.CATEGORY_OPENABLE)
-            type = "text/plain" // MIME тип файла (текст)
-            putExtra(Intent.EXTRA_TITLE, "my_note.txt") // Имя файла по умолчанию
-        }
-        launcher.launch(intent)
-    }
+    private fun showCustomDialog() {
+        val dialogView = LayoutInflater.from(this).inflate(R.layout.dialog_action_setup, null)
 
-    // 2. Запись данных по полученному URI
-    private fun writeFile(uri: Uri, content: String) {
-        try {
-            contentResolver.openOutputStream(uri)?.use { outputStream ->
-                outputStream.write(content.toByteArray())
+        val builder = AlertDialog.Builder(this)
+        builder.setView(dialogView)
+        builder.setTitle("Параметры операции")
+
+        builder.setPositiveButton("ОК") { dialog, which ->
+            val etFileName = dialogView.findViewById<EditText>(R.id.etFileName)
+            val etPassword = dialogView.findViewById<EditText>(R.id.etPassword)
+            val radioGroup = dialogView.findViewById<RadioGroup>(R.id.radioGroupActions)
+
+            val dst = etFileName.text.toString()
+            val password = etPassword.text.toString()
+
+            val selectedAction = when (radioGroup.checkedRadioButtonId) {
+                R.id.rbUpload -> ActionType.UPLOAD
+                R.id.rbDownload -> ActionType.DOWNLOAD
+                else -> ActionType.NONE
             }
-            Toast.makeText(this, "Файл успешно сохранен!", Toast.LENGTH_SHORT).show()
-        } catch (e: Exception) {
-            e.printStackTrace()
-            Toast.makeText(this, "Ошибка сохранения: ${e.message}", Toast.LENGTH_SHORT).show()
+
+            when (selectedAction) {
+                ActionType.UPLOAD -> {
+                    encryptFile(dst, dst, password)
+                }
+                ActionType.DOWNLOAD -> {
+//                    unencryptdFile(src, dst, password)
+                }
+                ActionType.NONE -> {
+                    Toast.makeText(this, "Ошибка: действие не выбрано", Toast.LENGTH_SHORT).show()
+                }
+            }
         }
+
+        builder.setNegativeButton("Отмена") { dialog, which ->
+            dialog.dismiss()
+        }
+
+        builder.create().show()
+    }
+
+    private fun encryptFile(src: String, dst: String, password: String) {
+        if (!tvContent.getText().toString().isEmpty()) {
+            val sampleData = """
+                    Hellooooo from Android Kotlin and C++!
+                    This file was created using JNI.
+                    Timestamp: ${System.currentTimeMillis()}
+                    Multi-line content works perfectly!
+                """.trimIndent()
+
+            val textAsString: String = tvContent.getText().toString()
+            val encryped_file = File(filesDir, "encrypte.txt")
+            val unencrypted_file = File(filesDir, "unencrypte.txt")
+
+            var resultFromCpp = archiveAndSecure(sampleData, encryped_file.absolutePath)
+            resultFromCpp = unarchiveAndOpen(encryped_file.absolutePath)
+            tvResult.text = resultFromCpp
+        } else {
+            tvResult.text = "строка пуста"
+        }
+    }
+
+    private fun deencryptFile(src: String, dst: String, password: String) {
     }
 
     // 3. Запуск системного диалога выбора файла
@@ -142,7 +138,6 @@ class MainActivity : AppCompatActivity() {
         launcher.launch(intent)
     }
 
-    // 4. Чтение данных по URI
     private fun readFile(uri: Uri) {
         try {
             val stringBuilder = StringBuilder()
@@ -156,10 +151,37 @@ class MainActivity : AppCompatActivity() {
                 }
             }
             tvContent.text = stringBuilder.toString()
+            tvChosenFileName.text = getFileName(uri)
         } catch (e: Exception) {
             e.printStackTrace()
             Toast.makeText(this, "Ошибка чтения: ${e.message}", Toast.LENGTH_SHORT).show()
         }
+    }
+
+    private fun getFileName(uri: Uri): String {
+        var result: String? = null
+        if (uri.scheme == "content") {
+            val cursor: Cursor? = contentResolver.query(uri, null, null, null, null)
+            cursor?.use {
+                if (it.moveToFirst()) {
+                    // Ищем индекс колонки с именем
+                    val nameIndex = it.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+                    if (nameIndex >= 0) {
+                        result = it.getString(nameIndex)
+                    }
+                }
+            }
+        }
+
+        // Если не удалось найти имя через ContentResolver, берем последний сегмент пути
+        if (result == null) {
+            result = uri.path
+            val cut = result?.lastIndexOf('/')
+            if (cut != null && cut != -1) {
+                result = result?.substring(cut + 1)
+            }
+        }
+        return result ?: "unknown_file"
     }
     companion object {
         // Used to load the 'myapplication' library on application startup.
