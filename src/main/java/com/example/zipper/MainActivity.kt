@@ -14,9 +14,10 @@ import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.activity.result.contract.ActivityResultContracts
 import java.io.BufferedReader
-import java.io.File
-import java.io.IOException
+import android.provider.Settings
+import android.os.Build
 import android.database.Cursor
+import android.os.Environment
 import android.provider.OpenableColumns
 import java.io.InputStreamReader
 
@@ -30,6 +31,7 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        requestAllFilesAccessPermission()
         setContentView(R.layout.activity_main)
 
         tvContent = findViewById(R.id.tvChosenFileContent)
@@ -55,13 +57,12 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private external fun processTextNative(text: String): String
-    private external fun archiveAndSecure(text: String, save_to: String): String
-    private external fun unarchiveAndOpen(path_to: String): String
+    private external fun archiveAndSecure(src: String, dst: String): String
+    private external fun unarchiveAndOpen(src: String, dst: String): String
 
     enum class ActionType {
-        UPLOAD,
-        DOWNLOAD,
+        ENCRYPT,
+        UNENCRYPT,
         NONE
     }
     private fun showCustomDialog() {
@@ -80,17 +81,17 @@ class MainActivity : AppCompatActivity() {
             val password = etPassword.text.toString()
 
             val selectedAction = when (radioGroup.checkedRadioButtonId) {
-                R.id.rbUpload -> ActionType.UPLOAD
-                R.id.rbDownload -> ActionType.DOWNLOAD
+                R.id.rbEncrypt -> ActionType.ENCRYPT
+                R.id.rbUnencrypt -> ActionType.UNENCRYPT
                 else -> ActionType.NONE
             }
 
             when (selectedAction) {
-                ActionType.UPLOAD -> {
-                    encryptFile(dst, dst, password)
+                ActionType.ENCRYPT -> {
+                    encryptFile(tvChosenFileName.getText().toString(), dst, password)
                 }
-                ActionType.DOWNLOAD -> {
-//                    unencryptdFile(src, dst, password)
+                ActionType.UNENCRYPT -> {
+                    unencryptFile(tvChosenFileName.getText().toString(), dst, password)
                 }
                 ActionType.NONE -> {
                     Toast.makeText(this, "Ошибка: действие не выбрано", Toast.LENGTH_SHORT).show()
@@ -107,33 +108,32 @@ class MainActivity : AppCompatActivity() {
 
     private fun encryptFile(src: String, dst: String, password: String) {
         if (!tvContent.getText().toString().isEmpty()) {
-            val sampleData = """
-                    Hellooooo from Android Kotlin and C++!
-                    This file was created using JNI.
-                    Timestamp: ${System.currentTimeMillis()}
-                    Multi-line content works perfectly!
-                """.trimIndent()
-
-            val textAsString: String = tvContent.getText().toString()
-            val encryped_file = File(filesDir, "encrypte.txt")
-            val unencrypted_file = File(filesDir, "unencrypte.txt")
-
-            var resultFromCpp = archiveAndSecure(sampleData, encryped_file.absolutePath)
-            resultFromCpp = unarchiveAndOpen(encryped_file.absolutePath)
+            val download_dir = Environment.getExternalStorageDirectory().getPath() + "/Download/"
+            val src_file = download_dir + src;
+            val dst_file = download_dir + dst;
+            var resultFromCpp = archiveAndSecure(src_file, dst_file)
             tvResult.text = resultFromCpp
         } else {
             tvResult.text = "строка пуста"
         }
     }
 
-    private fun deencryptFile(src: String, dst: String, password: String) {
+    private fun unencryptFile(src: String, dst: String, password: String) {
+        if (!tvContent.getText().toString().isEmpty()) {
+            val download_dir = Environment.getExternalStorageDirectory().getPath() + "/Download/"
+            val src_file = download_dir + src;
+            val dst_file = download_dir + dst;
+            var resultFromCpp = unarchiveAndOpen(src_file, dst_file)
+            tvContent.text = resultFromCpp
+        } else {
+            tvResult.text = "строка пуста"
+        }
     }
 
-    // 3. Запуск системного диалога выбора файла
     private fun openFile(launcher: androidx.activity.result.ActivityResultLauncher<Intent>) {
         val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
             addCategory(Intent.CATEGORY_OPENABLE)
-            type = "text/plain" // Фильтр (показывать только текстовые файлы)
+            type = "text/plain"
         }
         launcher.launch(intent)
     }
@@ -164,7 +164,6 @@ class MainActivity : AppCompatActivity() {
             val cursor: Cursor? = contentResolver.query(uri, null, null, null, null)
             cursor?.use {
                 if (it.moveToFirst()) {
-                    // Ищем индекс колонки с именем
                     val nameIndex = it.getColumnIndex(OpenableColumns.DISPLAY_NAME)
                     if (nameIndex >= 0) {
                         result = it.getString(nameIndex)
@@ -173,7 +172,6 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        // Если не удалось найти имя через ContentResolver, берем последний сегмент пути
         if (result == null) {
             result = uri.path
             val cut = result?.lastIndexOf('/')
@@ -183,8 +181,27 @@ class MainActivity : AppCompatActivity() {
         }
         return result ?: "unknown_file"
     }
+
+    private fun requestAllFilesAccessPermission() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            if (!Environment.isExternalStorageManager()) {
+                try {
+                    val intent = Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION)
+                    intent.addCategory("android.intent.category.DEFAULT")
+                    intent.data = Uri.parse("package:${packageName}")
+                    startActivity(intent)
+                } catch (e: Exception) {
+                    val intent = Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION)
+                    startActivity(intent)
+                }
+            } else {
+                Toast.makeText(this, "Access is already granted", Toast.LENGTH_SHORT).show()
+            }
+        } else {
+            throw Error("This line of code should be unreachable")
+        }
+    }
     companion object {
-        // Used to load the 'myapplication' library on application startup.
         init {
             System.loadLibrary("zipper")
         }

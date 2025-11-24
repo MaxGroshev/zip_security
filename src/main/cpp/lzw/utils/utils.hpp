@@ -44,7 +44,7 @@ std::string read_from_file_into_string(const char* path) {
 
     data_file.open(path);
     if (!data_file.good()) {
-        throw std::runtime_error("Input file does not exist\n");
+        throw std::runtime_error("Input file does not exist\n" + std::string(path));
     }
     data_file.exceptions(std::ifstream::failbit | std::ifstream::badbit);
     std::stringstream data_stream;
@@ -86,7 +86,5 @@ std::vector<uint32_t> read_from_bin_file_into_int(const char* path) {
     data_file.close();
     return data;
 }
-
-
 }
 

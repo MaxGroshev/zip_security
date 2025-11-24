@@ -21,18 +21,18 @@
         android:layout_marginBottom="16dp">
 
         <RadioButton
-            android:id="@+id/rbUpload"
+            android:id="@+id/rbEncrypt"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Загрузить"
+            android:text="Зашифровать"
             android:checked="true"/>
 
         <RadioButton
-            android:id="@+id/rbDownload"
+            android:id="@+id/rbUnencrypt"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginStart="16dp"
-            android:text="Скачать"/>
+            android:text="Расшифровать"/>
     </RadioGroup>
 
     <!-- Поле ввода имени файла -->
