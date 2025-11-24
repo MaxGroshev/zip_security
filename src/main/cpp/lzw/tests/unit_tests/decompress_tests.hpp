@@ -6,10 +6,10 @@ using namespace my_compress;
 
 class lzw_test2 : public ::testing::Test {
     protected:
-        std::vector<int> decompress_data1  = {66, 65, 128, 129, 65, 132};
+        std::vector<uint32_t> decompress_data1  = {66, 65, 128, 129, 65, 132};
         std::string correct_res1 = {"BABAABAAA"};
 
-        std::vector<int> decompress_data2 = {84, 79, 66, 69, 79, 82, 78, 79, 84,
+        std::vector<uint32_t> decompress_data2 = {84, 79, 66, 69, 79, 82, 78, 79, 84,
                                          128, 130, 132, 137, 131, 133, 135};
         std::string correct_res2 = {"TOBEORNOTTOBEORTOBEORNOT"};
 

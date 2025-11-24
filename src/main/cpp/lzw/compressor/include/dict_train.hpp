@@ -9,11 +9,11 @@
 
 class dict_train_t {
 
-    using um_vector = typename std::vector<std::pair<std::string, int>>;
+    using um_vector = typename std::vector<std::pair<std::string, uint32_t>>;
 
     private:
         set_up_t config_;
-        std::unordered_map<std::string, int> dictionary_;
+        std::unordered_map<std::string, uint32_t> dictionary_;
     public:
         dict_train_t(set_up_t config) : config_(config) {}
 
@@ -67,7 +67,7 @@ class dict_train_t {
         void write_dictionary_to_file(um_vector& data) const {
             std::ofstream out(config_.get_dest_dir(), std::ios::binary);
 
-            for (int i = 0; i < std::min(int(data.size()), config_.get_maxdict()); i++) {
+            for (uint32_t i = 0; i < std::min(int(data.size()), config_.get_maxdict()); i++) {
                 data[i].first += "\n";
                 out.write(data[i].first.data(), data[i].first.size());//probably too low
             }

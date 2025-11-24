@@ -41,25 +41,23 @@ TEST_F(encrypt_test, encrypt_test1) {
     auto compressed = lzw.compress(text);
 
     std::array<uint32_t, 32> key;
-    for(int i=0; i<32; i++) {
+    for(uint32_t i=0; i<32; i++) {
         key[i] = i;
     }
     std::array<uint32_t, 12> nonce = {0,0,0,0,0,0,0,0x4a,0,0,0,0};
 
     chacha20_t chacha(key, nonce, counter);
     std::vector<uint32_t> ciphertext;
-    std::vector<uint32_t> uint_vect(compressed.begin(), compressed.end());
-    chacha.crypt(uint_vect, ciphertext);
+    chacha.crypt(compressed, ciphertext);
 
     chacha20_t chacha_decrypt(key, nonce, counter);
     std::vector<uint32_t> deciphertext;
     chacha_decrypt.crypt(ciphertext, deciphertext);
     
-    std::vector<int32_t> int_vect(deciphertext.begin(), deciphertext.end());
-    auto res = lzw.decompress(int_vect);
+    auto res = lzw.decompress(deciphertext);
     
     // std::cout << res << std::endl;
-    
+    // std::cout << compressed.size() << " : " << ciphertext.size() << std::endl;
     ASSERT_TRUE(compressed.size() == ciphertext.size());
     ASSERT_TRUE(res == text);
 };

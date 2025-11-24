@@ -7,10 +7,10 @@ using namespace my_compress;
 class lzw_test : public ::testing::Test {
     protected:
         std::string compress_data1 = {"BABAABAAA"};
-        std::vector<int> correct_res1  = {'B', 'A', 128, 129, 'A', 132};
+        std::vector<uint32_t> correct_res1  = {'B', 'A', 128, 129, 'A', 132};
 
         std::string compress_data2 = {"TOBEORNOTTOBEORTOBEORNOT"};
-        std::vector<int> correct_res2 = {84, 79, 66, 69, 79, 82, 78, 79, 84,
+        std::vector<uint32_t> correct_res2 = {84, 79, 66, 69, 79, 82, 78, 79, 84,
                                          128, 130, 132, 137, 131, 133, 135};
 
     void SetUp() {

@@ -16,8 +16,8 @@ class lzw_t final {
         decompressor_t decompressor;
 
     public:
-        lzw_t(set_up_t config, int init_encode_dictionary_size,
-                               int init_decode_dictionary_size) :
+        lzw_t(set_up_t config, uint32_t init_encode_dictionary_size,
+                               uint32_t init_decode_dictionary_size) :
             config_(config),
             compressor(init_encode_dictionary_size),
             decompressor(init_decode_dictionary_size) {}
@@ -30,12 +30,12 @@ class lzw_t final {
 
 //COMPRESSOR_WRAPER------------------------------------------------------------------------
 
-        std::vector<int> compress(const std::string& input_dat) {
+        std::vector<uint32_t> compress(const std::string& input_dat) {
             return compressor.compress(input_dat.begin(), input_dat.end());
         };
-        std::vector<int> compress() {
+        std::vector<uint32_t> compress() {
             std::string input_dat = get_data_for_compress();
-            std::vector<int> res = compressor.compress(input_dat.begin(), input_dat.end());
+            std::vector<uint32_t> res = compressor.compress(input_dat.begin(), input_dat.end());
             std::string write_dir = config_.get_dest_dir();
             compressor.write_res_in_bin(res, write_dir.c_str());
             return res;
@@ -43,11 +43,11 @@ class lzw_t final {
 
 //DECOMPRESSOR_WRAPER----------------------------------------------------------------------
 
-        std::string decompress(const std::vector<int>& input_dat) {
+        std::string decompress(const std::vector<uint32_t>& input_dat) {
             return decompressor.decompress(input_dat.begin(), input_dat.end());
         };
         std::string decompress() {
-            std::vector<int> input_dat = get_data_for_decompress();
+            std::vector<uint32_t> input_dat = get_data_for_decompress();
             utils::dump_vect(input_dat);
             std::string res = decompressor.decompress(input_dat.begin(), input_dat.end());
             decompressor.write_res(res, config_.get_dest_dir());
@@ -64,13 +64,13 @@ class lzw_t final {
         std::string get_data_for_compress() const {
             return utils::read_from_file_into_string(config_.get_src_dir());
         };
-        std::vector<int> get_data_for_decompress() const {
+        std::vector<uint32_t> get_data_for_decompress() const {
             return decompressor.get_data(config_.get_src_dir());
         };
         void compress_show_res() const {
             size_t comp_size =  utils::get_file_size(config_.get_dest_dir());
             size_t input_size =  utils::get_file_size(config_.get_src_dir());
-            std::clog << "File compressed into: "<< config_.get_dest_dir() << std::endl;
+            std::clog << "File compressed uint32_to: "<< config_.get_dest_dir() << std::endl;
             std::clog << input_size / 1024 << " Kbts" <<
                         " ==> " << comp_size / 1024 << " Kbts" << "\n";
             std::clog << "Compression factor: " << double(comp_size * 100) /

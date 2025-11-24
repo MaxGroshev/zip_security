@@ -18,14 +18,14 @@ int main(int argc, char** argv) {
         }
         else if (set_up.is_dict_mode()) {
             lzw_t dict_encoder {set_up};
-            std::vector<int> res = dict_encoder.compress();
+            std::vector<uint32_t> res = dict_encoder.compress();
             dict_encoder.compress_show_res();
         }
         else {
-            int encoder_init_size = 256;
-            int decoder_init_size = 0;
+            uint32_t encoder_init_size = 256;
+            uint32_t decoder_init_size = 0;
             lzw_t encoder {set_up, encoder_init_size, decoder_init_size};
-            std::vector<int> res = encoder.compress();
+            std::vector<uint32_t> res = encoder.compress();
             encoder.compress_show_res();
         }
 
