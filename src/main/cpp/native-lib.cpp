@@ -28,7 +28,7 @@ Java_com_example_zipper_MainActivity_archiveAndSecure(
 
     auto text = utils::read_from_file_into_string(native_read_from);
     my_compress::compressor_t compressor{};
-    auto res = compressor.compress(text.begin(), text.end());
+    auto compressed_data = compressor.compress(text.begin(), text.end());
 
     std::array<uint32_t, 32> key;
     for(int i=0; i<32; i++) {
@@ -38,13 +38,13 @@ Java_com_example_zipper_MainActivity_archiveAndSecure(
     
     my_compress::chacha20_t chacha(key, nonce, 1);
     std::vector<uint32_t> ciphertext;
-    std::vector<uint32_t> plaintext(text.begin(), text.end());
-    chacha.crypt(plaintext, ciphertext);
+    std::vector<uint32_t> uint_vector(compressed_data.begin(), compressed_data.end());
+    chacha.crypt(uint_vector, ciphertext);
 
     try {
         utils::write_int_data_into_bin_file(ciphertext, native_save_to);
-    } catch(std::string& err) {
-        LOGD("%s", err.c_str());
+    } catch(std::runtime_error &err) {
+        LOGD("%s", err.what());
     }
 
     return env->NewStringUTF(native_save_to);
@@ -58,12 +58,14 @@ Java_com_example_zipper_MainActivity_unarchiveAndOpen(
 
     LOGD(__PRETTY_FUNCTION__);
 
-    const char *native_path_to = env->GetStringUTFChars(read_from, 0);
+    const char *native_read_from = env->GetStringUTFChars(read_from, 0);
+    const char *native_save_to = env->GetStringUTFChars(save_to, 0);
+
     std::vector<uint32_t> data{};
     try {
-        data = utils::read_from_bin_file_into_int(native_path_to);
-    } catch(std::string& err) {
-        LOGD("%s", err.c_str());
+        data = utils::read_from_bin_file_into_int(native_read_from);
+    } catch(std::runtime_error &err) {
+        LOGD("%s", err.what());
     }
 
     std::array<uint32_t, 32> key;
@@ -79,6 +81,7 @@ Java_com_example_zipper_MainActivity_unarchiveAndOpen(
 
     my_compress::decompressor_t decompressor{};
     auto res = decompressor.decompress(deciphertext.begin(), deciphertext.end());
+    utils::write_string_into_file(native_save_to, res);
 
     return env->NewStringUTF(res.c_str());
 }

@@ -4,6 +4,7 @@
 #include <filesystem>
 #include <fstream>
 #include <sstream>
+#include <cerrno>
 #include <sys/stat.h>
 
 namespace fs = std::filesystem;
@@ -44,7 +45,8 @@ std::string read_from_file_into_string(const char* path) {
 
     data_file.open(path);
     if (!data_file.good()) {
-        throw std::runtime_error("Input file does not exist\n" + std::string(path));
+        throw std::runtime_error("Error of opening file:\n" + std::string(path) +
+                                 " Errno: " + std::to_string(errno));
     }
     data_file.exceptions(std::ifstream::failbit | std::ifstream::badbit);
     std::stringstream data_stream;
@@ -69,12 +71,18 @@ void write_int_data_into_bin_file(std::vector<uint32_t> res, const char* path) {
     out.close();
 }
 
+void write_string_into_file(const char* path, std::string &data) {
+    std::ofstream out(path);
+    out << data;
+    out.close();
+}
+
 std::vector<uint32_t> read_from_bin_file_into_int(const char* path) {
 
     std::ifstream data_file(path, std::ios::binary);
     if (!data_file.good()) {
-        std::string msg = "Input file does not exist\n" ;
-        throw std::runtime_error(msg + path);
+        throw std::runtime_error("Error of opening file:\n" + std::string(path) +
+                                 " Errno: " + std::to_string(errno));
     }
 
     size_t f_size = utils::get_file_size(path);

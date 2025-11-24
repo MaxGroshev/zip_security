@@ -11,7 +11,6 @@
 
 #include "compress_tests.hpp"
 #include "decompress_tests.hpp"
-
-
+#include "encrypt_compress_test.hpp"
 
 //-----------------------------------------------------------------------------------------
