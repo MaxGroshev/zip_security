@@ -11,6 +11,7 @@
 #include "lzw/compressor/include/compressor.hpp"
 #include "lzw/compressor/include/decompressor.hpp"
 #include "lzw/encryptor/chacha20.hpp"
+#include "lzw/encryptor/key_generator.hpp"
 #include "lzw/utils/utils.hpp"
 
 #define LOG_TAG "MyNativeApp"

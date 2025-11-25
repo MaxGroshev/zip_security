@@ -16,7 +16,7 @@ namespace my_compress {
 
 class chacha20_t {
     public:
-        static const int KEY_SIZE   = 32;
+        static const int KEY_SIZE = 32;
         static const int NONCE_SIZE = 12;
         static const int BLOCK_SIZE = 64;
 

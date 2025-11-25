@@ -1,14 +1,17 @@
+
 #pragma once
 
 #include <gtest/gtest.h>
 
 #include "chacha20.hpp"
+#include "key_gen_test.hpp"
+#include "key_generator.hpp"
 
 using namespace my_compress;
 
 //-----------------------------------------------------------------------------------------
 
-class encrypt_test : public ::testing::Test {
+class keygen_test : public ::testing::Test {
     protected:
         uint32_t counter = 1;
         std::string text = "Ladies and gentlemen of the class of '99: If I could offer you only one tip for the future, sunscreen would be it.";
@@ -19,12 +22,23 @@ class encrypt_test : public ::testing::Test {
 
 //-----------------------------------------------------------------------------------------
 
-TEST_F(encrypt_test, encrypt_test1) {
+TEST_F(keygen_test, compare_generated_and_translated_keys) {
 
-    std::array<uint32_t, 32> key;
-    for(int i = 0; i < 32; i++) {
-        key[i] = i;
-    }
+    key_generator_t<uint32_t> gn{};
+    auto key1 = gn.generate();
+    auto str_key = gn.uint8_vector_to_hex_string(key1);
+    auto key = gn.hex_string_to_uint8_vector(str_key);
+    
+    // std::cout <<  str_key << std::endl;
+    // for(auto byte : key1) {
+    //     std::cout << std::hex << std::setw(2) << std::setfill('0') << (int)byte;
+    // }
+    // std::cout << std::dec << std::endl;
+    
+    // for (size_t i = 0; i < myString.length(); ++i) {
+    //     byteArray[i] = static_cast<uint8_t>(myString[i]);
+    // }
+
     std::array<uint32_t, 12> nonce = {0,0,0,0,0,0,0,0x4a,0,0,0,0};
     std::vector<uint32_t> plaintext(text.begin(), text.end());
 
@@ -36,8 +50,6 @@ TEST_F(encrypt_test, encrypt_test1) {
     std::vector<uint32_t> deciphertext;
     chacha_decrypt.crypt(ciphertext, deciphertext);
 
-    std::string recoveredStr(deciphertext.begin(), deciphertext.end());
-    std::cout << recoveredStr << std::endl;
 
     ASSERT_TRUE(plaintext == deciphertext);
 }

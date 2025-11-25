@@ -29,6 +29,4 @@ if (TESTING_ENABLED)
     add_subdirectory(tests/)
 endif()
 
-# unset(TESTING_ENABLED CACHE)
-
 

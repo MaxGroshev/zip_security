@@ -6,7 +6,7 @@
 #include <array>
 #include <vector>
 
-#include "chacha20.hpp"
 #include "chacha20_test.hpp"
+#include "key_gen_test.hpp"
 
 //-----------------------------------------------------------------------------------------
