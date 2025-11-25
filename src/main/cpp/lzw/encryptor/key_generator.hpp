@@ -48,7 +48,7 @@ public:
     }
 
     std::array<T, key_size> hex_string_to_uint8_vector(const std::string& str_key) const  {
-        assert(str_key.length == key_size * 2);
+        assert(str_key.length() == key_size * 2);
 
         std::array<T, key_size> key{};
         T high_part = 0; 
@@ -77,8 +77,7 @@ public:
             } else if (c >= 'A' && c <= 'F') {
                 return c - 'A' + 10;
             }
-            return -1; // Invalid hex character
+            return -1;
         }
 };
-
 }

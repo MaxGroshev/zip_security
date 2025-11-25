@@ -6,7 +6,7 @@
     android:orientation="vertical">
 
     <TextView
-        android:id="@+id/tvChosenFileName"
+        android:id="@+id/tvCurrentlyDisplayingFile"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:padding="8dp"
@@ -38,7 +38,8 @@
             android:layout_height="wrap_content"
             android:background="#EEEEEE"
             android:padding="8dp"
-            android:text="Здесь появится текст после обработки" />
+            android:textIsSelectable="true"
+            android:text="Здесь появится пароль, запомните его, чтобы не забыть.." />
     </ScrollView>
 
     <Button

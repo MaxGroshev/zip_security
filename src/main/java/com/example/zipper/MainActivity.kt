@@ -20,6 +20,7 @@ import android.database.Cursor
 import android.os.Environment
 import android.provider.OpenableColumns
 import java.io.InputStreamReader
+import android.view.View
 
 class MainActivity : AppCompatActivity() {
 
@@ -27,7 +28,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var btnOpen: Button
     private lateinit var btnChooseAction: Button
     private lateinit var tvResult: TextView
-    private lateinit var tvChosenFileName: TextView
+    private lateinit var tvCurrentlyDisplayingFile: TextView
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -38,8 +39,7 @@ class MainActivity : AppCompatActivity() {
         btnOpen = findViewById(R.id.btnChooseFileForArchiving)
         btnChooseAction = findViewById(R.id.btnChooseAction)
         tvResult = findViewById(R.id.tvResult)
-        tvChosenFileName = findViewById(R.id.tvChosenFileName)
-
+        tvCurrentlyDisplayingFile = findViewById(R.id.tvCurrentlyDisplayingFile)
 
         btnChooseAction.setOnClickListener {
             showCustomDialog()
@@ -58,24 +58,40 @@ class MainActivity : AppCompatActivity() {
     }
 
     private external fun archiveAndSecure(src: String, dst: String): String
-    private external fun unarchiveAndOpen(src: String, dst: String): String
+    private external fun unarchiveAndOpen(src: String, dst: String, key: String): String
 
     enum class ActionType {
         ENCRYPT,
         UNENCRYPT,
         NONE
     }
+
     private fun showCustomDialog() {
         val dialogView = LayoutInflater.from(this).inflate(R.layout.dialog_action_setup, null)
+        val etFileName = dialogView.findViewById<EditText>(R.id.etFileName)
+        val etPassword = dialogView.findViewById<EditText>(R.id.etPassword)
+        val radioGroup = dialogView.findViewById<RadioGroup>(R.id.radioGroupActions)
+
+        radioGroup.setOnCheckedChangeListener { group, checkedId ->
+            when (checkedId) {
+                R.id.rbUnencrypt -> {
+                    etPassword.visibility = View.VISIBLE
+                }
+                R.id.rbEncrypt -> {
+                    etPassword.visibility = View.GONE
+                }
+            }
+        }
+        if (radioGroup.checkedRadioButtonId == R.id.rbEncrypt) {
+            etPassword.visibility = View.GONE
+        }
 
         val builder = AlertDialog.Builder(this)
         builder.setView(dialogView)
         builder.setTitle("Параметры операции")
 
         builder.setPositiveButton("ОК") { dialog, which ->
-            val etFileName = dialogView.findViewById<EditText>(R.id.etFileName)
-            val etPassword = dialogView.findViewById<EditText>(R.id.etPassword)
-            val radioGroup = dialogView.findViewById<RadioGroup>(R.id.radioGroupActions)
+
 
             val dst = etFileName.text.toString()
             val password = etPassword.text.toString()
@@ -86,16 +102,24 @@ class MainActivity : AppCompatActivity() {
                 else -> ActionType.NONE
             }
 
-            when (selectedAction) {
-                ActionType.ENCRYPT -> {
-                    encryptFile(tvChosenFileName.getText().toString(), dst, password)
+
+            if (etFileName.toString().isNotEmpty()) {
+                when (selectedAction) {
+                    ActionType.ENCRYPT -> {
+                        encryptFile(tvCurrentlyDisplayingFile.getText().toString(), dst)
+                    }
+
+                    ActionType.UNENCRYPT -> {
+                        unencryptFile(tvCurrentlyDisplayingFile.getText().toString(), dst, password)
+                    }
+
+                    ActionType.NONE -> {
+                        Toast.makeText(this, "Ошибка: действие не выбрано", Toast.LENGTH_SHORT)
+                            .show()
+                    }
                 }
-                ActionType.UNENCRYPT -> {
-                    unencryptFile(tvChosenFileName.getText().toString(), dst, password)
-                }
-                ActionType.NONE -> {
-                    Toast.makeText(this, "Ошибка: действие не выбрано", Toast.LENGTH_SHORT).show()
-                }
+            } else {
+                Toast.makeText(this, "Пожалуйста, заполните поля названия файла", Toast.LENGTH_SHORT).show()
             }
         }
 
@@ -106,7 +130,7 @@ class MainActivity : AppCompatActivity() {
         builder.create().show()
     }
 
-    private fun encryptFile(src: String, dst: String, password: String) {
+    private fun encryptFile(src: String, dst: String) {
         if (!tvContent.getText().toString().isEmpty()) {
             val download_dir = Environment.getExternalStorageDirectory().getPath() + "/Download/"
             val src_file = download_dir + src;
@@ -118,13 +142,14 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun unencryptFile(src: String, dst: String, password: String) {
+    private fun unencryptFile(src: String, dst: String, key: String) {
         if (!tvContent.getText().toString().isEmpty()) {
             val download_dir = Environment.getExternalStorageDirectory().getPath() + "/Download/"
             val src_file = download_dir + src;
             val dst_file = download_dir + dst;
-            var resultFromCpp = unarchiveAndOpen(src_file, dst_file)
+            var resultFromCpp = unarchiveAndOpen(src_file, dst_file, key)
             tvContent.text = resultFromCpp
+            tvCurrentlyDisplayingFile.text = dst_file;
         } else {
             tvResult.text = "строка пуста"
         }
@@ -151,7 +176,7 @@ class MainActivity : AppCompatActivity() {
                 }
             }
             tvContent.text = stringBuilder.toString()
-            tvChosenFileName.text = getFileName(uri)
+            tvCurrentlyDisplayingFile.text = getFileName(uri)
         } catch (e: Exception) {
             e.printStackTrace()
             Toast.makeText(this, "Ошибка чтения: ${e.message}", Toast.LENGTH_SHORT).show()

@@ -31,10 +31,8 @@ Java_com_example_zipper_MainActivity_archiveAndSecure(
     my_compress::compressor_t compressor{};
     auto compressed_data = compressor.compress(text.begin(), text.end());
 
-    std::array<uint32_t, 32> key;
-    for(int i=0; i<32; i++) {
-        key[i] = i;
-    }
+    my_compress::key_generator_t<uint32_t> gn{};
+    auto key = gn.generate();
     std::array<uint32_t, 12> nonce = {0,0,0,0,0,0,0,0x4a,0,0,0,0};
     
     my_compress::chacha20_t chacha(key, nonce, 1);
@@ -48,19 +46,26 @@ Java_com_example_zipper_MainActivity_archiveAndSecure(
         LOGD("%s", err.what());
     }
 
-    return env->NewStringUTF(native_save_to);
+    auto str_key = gn.uint8_vector_to_hex_string(key);
+    LOGD("%s", str_key.c_str());
+    return env->NewStringUTF(str_key.c_str());
 }
 
 extern "C" JNIEXPORT jstring JNICALL
 Java_com_example_zipper_MainActivity_unarchiveAndOpen(
         JNIEnv* env,
         jobject /* this */,
-        jstring read_from, jstring save_to) {
+        jstring read_from, jstring save_to, jstring my_key) {
 
     LOGD(__PRETTY_FUNCTION__);
 
     const char *native_read_from = env->GetStringUTFChars(read_from, 0);
     const char *native_save_to = env->GetStringUTFChars(save_to, 0);
+
+    const char *native_key = env->GetStringUTFChars(my_key, 0);
+    std::string str_key(native_key);
+    env->ReleaseStringUTFChars(my_key, native_key);
+    LOGD("%s", str_key.c_str());
 
     std::vector<uint32_t> data{};
     try {
@@ -68,11 +73,9 @@ Java_com_example_zipper_MainActivity_unarchiveAndOpen(
     } catch(std::runtime_error &err) {
         LOGD("%s", err.what());
     }
+    my_compress::key_generator_t<uint32_t> gn {};
 
-    std::array<uint32_t, 32> key;
-    for(int i=0; i<32; i++) {
-        key[i] = i;
-    }
+    std::array<uint32_t, 32> key = gn.hex_string_to_uint8_vector(str_key);
     std::array<uint32_t, 12> nonce = {0,0,0,0,0,0,0,0x4a,0,0,0,0};
 
     my_compress::chacha20_t chacha(key, nonce, 1);
