@@ -22,6 +22,8 @@ import android.provider.OpenableColumns
 import java.io.InputStreamReader
 import android.view.View
 
+import nativecpp.LzwArchiver
+
 class MainActivity : AppCompatActivity() {
 
     private lateinit var tvContent: TextView
@@ -29,6 +31,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var btnChooseAction: Button
     private lateinit var tvResult: TextView
     private lateinit var tvCurrentlyDisplayingFile: TextView
+    private val lzw = LzwArchiver()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -56,9 +59,6 @@ class MainActivity : AppCompatActivity() {
             openFile(openDocLauncher)
         }
     }
-
-    private external fun archiveAndSecure(src: String, dst: String): String
-    private external fun unarchiveAndOpen(src: String, dst: String, key: String): String
 
     enum class ActionType {
         ENCRYPT,
@@ -136,7 +136,7 @@ class MainActivity : AppCompatActivity() {
             val download_dir = Environment.getExternalStorageDirectory().getPath() + "/Download/"
             val src_file = download_dir + src;
             val dst_file = download_dir + dst;
-            var resultFromCpp = archiveAndSecure(src_file, dst_file)
+            var resultFromCpp = lzw.archiveAndSecure(src_file, dst_file)
             tvResult.text = resultFromCpp
         } else {
             tvResult.text = "строка пуста"
@@ -148,7 +148,7 @@ class MainActivity : AppCompatActivity() {
             val download_dir = Environment.getExternalStorageDirectory().getPath() + "/Download/"
             val src_file = download_dir + src;
             val dst_file = download_dir + dst;
-            var resultFromCpp = unarchiveAndOpen(src_file, dst_file, key)
+            var resultFromCpp = lzw.unarchiveAndOpen(src_file, dst_file, key)
             tvContent.text = resultFromCpp
             tvCurrentlyDisplayingFile.text = dst_file;
         } else {
@@ -225,11 +225,6 @@ class MainActivity : AppCompatActivity() {
             }
         } else {
             throw Error("This line of code should be unreachable")
-        }
-    }
-    companion object {
-        init {
-            System.loadLibrary("zipper")
         }
     }
 }

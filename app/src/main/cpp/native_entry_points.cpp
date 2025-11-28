@@ -1,24 +1,7 @@
-#include <string>
-#include <iostream>
-#include <algorithm>
-#include <cerrno>
-#include <cstring>
-#include <fstream>
-
-#include <jni.h>
-#include <android/log.h>
-
-#include "lzw/compressor/include/compressor.hpp"
-#include "lzw/compressor/include/decompressor.hpp"
-#include "lzw/encryptor/chacha20.hpp"
-#include "lzw/encryptor/key_generator.hpp"
-#include "lzw/utils/utils.hpp"
-
-#define LOG_TAG "MyNativeApp"
-#define LOGD(...) __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, __VA_ARGS__)
+#include "native_entry_points.hpp"
 
 extern "C" JNIEXPORT jstring JNICALL
-Java_com_example_zipper_MainActivity_archiveAndSecure(
+Java_nativecpp_LzwArchiver_archiveAndSecure(
         JNIEnv* env,
         jobject /* this */,
         jstring read_from, jstring save_to) {
@@ -43,7 +26,7 @@ Java_com_example_zipper_MainActivity_archiveAndSecure(
     try {
         utils::write_int_data_into_bin_file(ciphertext, native_save_to);
     } catch(std::runtime_error &err) {
-        LOGD("%s", err.what());
+        LOGE("%s", err.what());
     }
 
     auto str_key = gn.uint8_vector_to_hex_string(key);
@@ -52,7 +35,7 @@ Java_com_example_zipper_MainActivity_archiveAndSecure(
 }
 
 extern "C" JNIEXPORT jstring JNICALL
-Java_com_example_zipper_MainActivity_unarchiveAndOpen(
+Java_nativecpp_LzwArchiver_unarchiveAndOpen(
         JNIEnv* env,
         jobject /* this */,
         jstring read_from, jstring save_to, jstring my_key) {
@@ -71,7 +54,7 @@ Java_com_example_zipper_MainActivity_unarchiveAndOpen(
     try {
         data = utils::read_from_bin_file_into_int(native_read_from);
     } catch(std::runtime_error &err) {
-        LOGD("%s", err.what());
+        LOGE("%s", err.what());
     }
     my_compress::key_generator_t<uint32_t> gn {};
 
