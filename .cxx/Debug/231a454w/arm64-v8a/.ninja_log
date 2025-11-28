@@ -1,5 +1,0 @@
-# ninja log v5
-0	502	1763819138403492159	CMakeFiles/zipper.dir/native-lib.cpp.o	58727551a93f448a
-504	564	1763819138464283632	/Users/max/research/projects/kotlin/zipper/app/build/intermediates/cxx/Debug/231a454w/obj/arm64-v8a/libzipper.so	3797794efb8d1939
-1	464	1763825527384874970	lzw/debug_utils/CMakeFiles/debug_utils.dir/error_control/error_control.cpp.o	4879ff2456b342bf
-3	680	1763825604347603000	lzw/debug_utils/libdebug_utils.a	1e53d3efaf7d9870

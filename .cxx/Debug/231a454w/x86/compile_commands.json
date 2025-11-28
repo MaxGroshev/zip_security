@@ -1,7 +1,0 @@
-[
-{
-  "directory": "/Users/max/research/projects/kotlin/zipper/app/.cxx/Debug/231a454w/x86",
-  "command": "/Users/max/Library/Android/sdk/ndk/27.0.12077973/toolchains/llvm/prebuilt/darwin-x86_64/bin/clang++ --target=i686-none-linux-android26 --sysroot=/Users/max/Library/Android/sdk/ndk/27.0.12077973/toolchains/llvm/prebuilt/darwin-x86_64/sysroot -Dzipper_EXPORTS -I/Users/max/research/projects/kotlin/zipper/app/src/main/cpp/lzw -g -DANDROID -fdata-sections -ffunction-sections -funwind-tables -fstack-protector-strong -no-canonical-prefixes -D_FORTIFY_SOURCE=2 -Wformat -Werror=format-security  -std=c++17 -fno-limit-debug-info  -fPIC -o CMakeFiles/zipper.dir/native-lib.cpp.o -c /Users/max/research/projects/kotlin/zipper/app/src/main/cpp/native-lib.cpp",
-  "file": "/Users/max/research/projects/kotlin/zipper/app/src/main/cpp/native-lib.cpp"
-}
-]

@@ -1,3 +1,0 @@
-/Users/max/research/projects/kotlin/zipper/app/.cxx/Debug/231a454w/x86/CMakeFiles/zipper.dir
-/Users/max/research/projects/kotlin/zipper/app/.cxx/Debug/231a454w/x86/CMakeFiles/edit_cache.dir
-/Users/max/research/projects/kotlin/zipper/app/.cxx/Debug/231a454w/x86/CMakeFiles/rebuild_cache.dir

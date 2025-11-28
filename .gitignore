@@ -1,3 +1,8 @@
-/build
-.cxx
-.gradle
+.gradle/
+.idea/
+.kotlin/
+build/
+/**/src/main/cpp/build/
+/**/src/main/cpp/.vscode/
+/**/src/main/cpp/.cache/
+/**/src/main/cpp/.cache/

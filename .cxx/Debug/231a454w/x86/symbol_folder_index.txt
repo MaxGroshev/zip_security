@@ -1,1 +1,0 @@
-/Users/max/research/projects/kotlin/zipper/app/build/intermediates/cxx/Debug/231a454w/obj/x86

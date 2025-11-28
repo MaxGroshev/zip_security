@@ -1,2 +1,0 @@
-/usr/bin/ar qc libdebug_utils.a CMakeFiles/debug_utils.dir/error_control/error_control.cpp.o
-/opt/homebrew/opt/llvm@20/bin/llvm-ranlib libdebug_utils.a

@@ -1,6 +1,0 @@
-/Users/max/research/projects/kotlin/zipper/app/src/main/cpp/build/CMakeFiles/zipper.dir
-/Users/max/research/projects/kotlin/zipper/app/src/main/cpp/build/CMakeFiles/edit_cache.dir
-/Users/max/research/projects/kotlin/zipper/app/src/main/cpp/build/CMakeFiles/rebuild_cache.dir
-/Users/max/research/projects/kotlin/zipper/app/src/main/cpp/build/lzw/debug_utils/CMakeFiles/debug_utils.dir
-/Users/max/research/projects/kotlin/zipper/app/src/main/cpp/build/lzw/debug_utils/CMakeFiles/edit_cache.dir
-/Users/max/research/projects/kotlin/zipper/app/src/main/cpp/build/lzw/debug_utils/CMakeFiles/rebuild_cache.dir

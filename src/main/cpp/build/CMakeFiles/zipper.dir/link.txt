@@ -1,1 +1,0 @@
-/opt/homebrew/opt/llvm@20/bin/clang++  -arch arm64 -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.1.sdk -dynamiclib -Wl,-headerpad_max_install_names -o libzipper.dylib -install_name @rpath/libzipper.dylib "CMakeFiles/zipper.dir/native-lib.cpp.o"  lzw/debug_utils/libdebug_utils.a -landroid -llog
