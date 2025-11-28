@@ -1,0 +1,50 @@
+    llvm::support::endian::Writer writer(OS, llvm::endianness::little);
+    writer.write<uint32_t>(Key);
+  }
+
+  hash_value_type ComputeHash(key_type_ref Key) {
+    return static_cast<size_t>(llvm::hash_value(Key));
+  }
+
+  unsigned getUnversionedInfoSize(const EnumConstantInfo &ECI) {
+    return getCommonEntityInfoSize(ECI);
+  }
+
+  void emitUnversionedInfo(raw_ostream &OS, const EnumConstantInfo &ECI) {
+    emitCommonEntityInfo(OS, ECI);
+  }
+};
+} // namespace
+
+void APINotesWriter::Implementation::writeEnumConstantBlock(
+    llvm::BitstreamWriter &Stream) {
+  llvm::BCBlockRAII Scope(Stream, ENUM_CONSTANT_BLOCK_ID, 3);
+
+  if (EnumConstants.empty())
+    return;
+
+  {
+    llvm::SmallString<4096> HashTableBlob;
+    uint32_t Offset;
+    {
+      llvm::OnDiskChainedHashTableGenerator<EnumConstantTableInfo> Generator;
+      for (auto &EC : EnumConstants)
+        Generator.insert(EC.first, EC.second);
+
+      llvm::raw_svector_ostream BlobStream(HashTableBlob);
+      // Make sure that no bucket is at offset 0
+      llvm::support::endian::write<uint32_t>(BlobStream, 0,
+                                             llvm::endianness::little);
+      Offset = Generator.Emit(BlobStream);
+    }
+
+    enum_constant_block::EnumConstantDataLayout EnumConstantData(Stream);
+    EnumConstantData.emit(Scratch, Offset, HashTableBlob);
+  }
+}
+
+namespace {
+template <typename Derived, typename UnversionedDataType>
+class CommonTypeTableInfo
+    : public VersionedTableInfo<Derived, ContextTableKey, UnversionedDataType> {
+public:

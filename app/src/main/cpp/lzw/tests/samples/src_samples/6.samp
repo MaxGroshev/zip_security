@@ -1,0 +1,50 @@
+    const_iterator shared_parent(const_iterator L);
+    bool pointsToFirstDeclaredVar() { return VarIter == 1; }
+    bool inSameLocalScope(const_iterator rhs) { return Scope == rhs.Scope; }
+  };
+
+private:
+  BumpVectorContext ctx;
+
+  /// Automatic variables in order of declaration.
+  AutomaticVarsTy Vars;
+
+  /// Iterator to variable in previous scope that was declared just before
+  /// begin of this scope.
+  const_iterator Prev;
+
+public:
+  /// Constructs empty scope linked to previous scope in specified place.
+  LocalScope(BumpVectorContext ctx, const_iterator P)
+      : ctx(std::move(ctx)), Vars(this->ctx, 4), Prev(P) {}
+
+  /// Begin of scope in direction of CFG building (backwards).
+  const_iterator begin() const { return const_iterator(*this, Vars.size()); }
+
+  void addVar(VarDecl *VD) {
+    Vars.push_back(VD, ctx);
+  }
+};
+
+} // namespace
+
+/// distance - Calculates distance from this to L. L must be reachable from this
+/// (with use of ++ operator). Cost of calculating the distance is linear w.r.t.
+/// number of scopes between this and L.
+int LocalScope::const_iterator::distance(LocalScope::const_iterator L) {
+  int D = 0;
+  const_iterator F = *this;
+  while (F.Scope != L.Scope) {
+    assert(F != const_iterator() &&
+           "L iterator is not reachable from F iterator.");
+    D += F.VarIter;
+    F = F.Scope->Prev;
+  }
+  D += F.VarIter - L.VarIter;
+  return D;
+}
+
+/// Calculates the closest parent of this iterator
+/// that is in a scope reachable through the parents of L.
+/// I.e. when using 'goto' from this to L, the lifetime of all variables
+/// between this and shared_parent(L) end.

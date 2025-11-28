@@ -1,0 +1,50 @@
+  }
+}
+
+// APINotesWriter
+
+APINotesWriter::APINotesWriter(llvm::StringRef ModuleName, const FileEntry *SF)
+    : Implementation(new class Implementation(ModuleName, SF)) {}
+
+APINotesWriter::~APINotesWriter() = default;
+
+void APINotesWriter::writeToStream(llvm::raw_ostream &OS) {
+  Implementation->writeToStream(OS);
+}
+
+ContextID APINotesWriter::addObjCContext(std::optional<ContextID> ParentCtxID,
+                                         StringRef Name, ContextKind Kind,
+                                         const ObjCContextInfo &Info,
+                                         VersionTuple SwiftVersion) {
+  IdentifierID NameID = Implementation->getIdentifier(Name);
+
+  uint32_t RawParentCtxID = ParentCtxID ? ParentCtxID->Value : -1;
+  ContextTableKey Key(RawParentCtxID, static_cast<uint8_t>(Kind), NameID);
+  auto Known = Implementation->ObjCContexts.find(Key);
+  if (Known == Implementation->ObjCContexts.end()) {
+    unsigned NextID = Implementation->ObjCContexts.size() + 1;
+
+    Implementation::VersionedSmallVector<ObjCContextInfo> EmptyVersionedInfo;
+    Known = Implementation->ObjCContexts
+                .insert(std::make_pair(
+                    Key, std::make_pair(NextID, EmptyVersionedInfo)))
+                .first;
+
+    Implementation->ObjCContextNames[NextID] = NameID;
+    Implementation->ParentContexts[NextID] = RawParentCtxID;
+  }
+
+  // Add this version information.
+  auto &VersionedVec = Known->second.second;
+  bool Found = false;
+  for (auto &Versioned : VersionedVec) {
+    if (Versioned.first == SwiftVersion) {
+      Versioned.second |= Info;
+      Found = true;
+      break;
+    }
+  }
+
+  if (!Found)
+    VersionedVec.push_back({SwiftVersion, Info});
+

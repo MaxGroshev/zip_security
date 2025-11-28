@@ -1,0 +1,50 @@
+      const llvm::APSInt &condInt = switchCond->Val.getInt();
+
+      if (condInt == lhsInt) {
+        addCase = true;
+        switchExclusivelyCovered = true;
+      }
+      else if (condInt > lhsInt) {
+        if (const Expr *RHS = CS->getRHS()) {
+          // Evaluate the RHS of the case value.
+          const llvm::APSInt &V2 = RHS->EvaluateKnownConstInt(Ctx);
+          if (V2 >= condInt) {
+            addCase = true;
+            switchExclusivelyCovered = true;
+          }
+        }
+      }
+    }
+    else
+      addCase = true;
+  }
+  return addCase;
+}
+
+CFGBlock *CFGBuilder::VisitCaseStmt(CaseStmt *CS) {
+  // CaseStmts are essentially labels, so they are the first statement in a
+  // block.
+  CFGBlock *TopBlock = nullptr, *LastBlock = nullptr;
+
+  if (Stmt *Sub = CS->getSubStmt()) {
+    // For deeply nested chains of CaseStmts, instead of doing a recursion
+    // (which can blow out the stack), manually unroll and create blocks
+    // along the way.
+    while (isa<CaseStmt>(Sub)) {
+      CFGBlock *currentBlock = createBlock(false);
+      currentBlock->setLabel(CS);
+
+      if (TopBlock)
+        addSuccessor(LastBlock, currentBlock);
+      else
+        TopBlock = currentBlock;
+
+      addSuccessor(SwitchTerminatedBlock,
+                   shouldAddCase(switchExclusivelyCovered, switchCond,
+                                 CS, *Context)
+                   ? currentBlock : nullptr);
+
+      LastBlock = currentBlock;
+      CS = cast<CaseStmt>(Sub);
+      Sub = CS->getSubStmt();
+    }

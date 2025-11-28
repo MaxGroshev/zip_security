@@ -1,0 +1,50 @@
+    OS << "this->" << FD->getName();
+    OS << ".~" << T->getAsCXXRecordDecl()->getName() << "()";
+    OS << " (Member object destructor)\n";
+    break;
+  }
+
+  case CFGElement::Kind::TemporaryDtor: {
+    const CXXBindTemporaryExpr *BT =
+        E.castAs<CFGTemporaryDtor>().getBindTemporaryExpr();
+    OS << "~";
+    BT->getType().print(OS, PrintingPolicy(Helper.getLangOpts()));
+    OS << "() (Temporary object destructor)\n";
+    break;
+  }
+  }
+}
+
+static void print_block(raw_ostream &OS, const CFG* cfg,
+                        const CFGBlock &B,
+                        StmtPrinterHelper &Helper, bool print_edges,
+                        bool ShowColors) {
+  Helper.setBlockID(B.getBlockID());
+
+  // Print the header.
+  if (ShowColors)
+    OS.changeColor(raw_ostream::YELLOW, true);
+
+  OS << "\n [B" << B.getBlockID();
+
+  if (&B == &cfg->getEntry())
+    OS << " (ENTRY)]\n";
+  else if (&B == &cfg->getExit())
+    OS << " (EXIT)]\n";
+  else if (&B == cfg->getIndirectGotoBlock())
+    OS << " (INDIRECT GOTO DISPATCH)]\n";
+  else if (B.hasNoReturnElement())
+    OS << " (NORETURN)]\n";
+  else
+    OS << "]\n";
+
+  if (ShowColors)
+    OS.resetColor();
+
+  // Print the label of this block.
+  if (Stmt *Label = const_cast<Stmt*>(B.getLabel())) {
+    if (print_edges)
+      OS << "  ";
+
+    if (LabelStmt *L = dyn_cast<LabelStmt>(Label))
+      OS << L->getName();

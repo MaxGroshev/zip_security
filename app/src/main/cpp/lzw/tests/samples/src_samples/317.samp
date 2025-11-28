@@ -1,0 +1,50 @@
+    return Builtin::BIbcmp;
+
+  case Builtin::BI__builtin_strncpy:
+  case Builtin::BI__builtin___strncpy_chk:
+  case Builtin::BIstrncpy:
+    return Builtin::BIstrncpy;
+
+  case Builtin::BI__builtin_strncmp:
+  case Builtin::BIstrncmp:
+    return Builtin::BIstrncmp;
+
+  case Builtin::BI__builtin_strncasecmp:
+  case Builtin::BIstrncasecmp:
+    return Builtin::BIstrncasecmp;
+
+  case Builtin::BI__builtin_strncat:
+  case Builtin::BI__builtin___strncat_chk:
+  case Builtin::BIstrncat:
+    return Builtin::BIstrncat;
+
+  case Builtin::BI__builtin_strndup:
+  case Builtin::BIstrndup:
+    return Builtin::BIstrndup;
+
+  case Builtin::BI__builtin_strlen:
+  case Builtin::BIstrlen:
+    return Builtin::BIstrlen;
+
+  case Builtin::BI__builtin_bzero:
+  case Builtin::BIbzero:
+    return Builtin::BIbzero;
+
+  case Builtin::BI__builtin_bcopy:
+  case Builtin::BIbcopy:
+    return Builtin::BIbcopy;
+
+  case Builtin::BIfree:
+    return Builtin::BIfree;
+
+  default:
+    if (isExternC()) {
+      if (FnInfo->isStr("memset"))
+        return Builtin::BImemset;
+      if (FnInfo->isStr("memcpy"))
+        return Builtin::BImemcpy;
+      if (FnInfo->isStr("mempcpy"))
+        return Builtin::BImempcpy;
+      if (FnInfo->isStr("memmove"))
+        return Builtin::BImemmove;
+      if (FnInfo->isStr("memcmp"))

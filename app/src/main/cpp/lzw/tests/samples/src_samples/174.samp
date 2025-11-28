@@ -1,0 +1,50 @@
+      EnumConstants;
+
+  /// Information about tags.
+  ///
+  /// Indexed by the context ID, contextKind, identifier ID.
+  llvm::DenseMap<ContextTableKey,
+                 llvm::SmallVector<std::pair<VersionTuple, TagInfo>, 1>>
+      Tags;
+
+  /// Information about typedefs.
+  ///
+  /// Indexed by the context ID, contextKind, identifier ID.
+  llvm::DenseMap<ContextTableKey,
+                 llvm::SmallVector<std::pair<VersionTuple, TypedefInfo>, 1>>
+      Typedefs;
+
+  /// Retrieve the ID for the given identifier.
+  IdentifierID getIdentifier(StringRef Identifier) {
+    if (Identifier.empty())
+      return 0;
+
+    auto Known = IdentifierIDs.find(Identifier);
+    if (Known != IdentifierIDs.end())
+      return Known->second;
+
+    // Add to the identifier table.
+    Known = IdentifierIDs.insert({Identifier, IdentifierIDs.size() + 1}).first;
+    return Known->second;
+  }
+
+  /// Retrieve the ID for the given selector.
+  SelectorID getSelector(ObjCSelectorRef SelectorRef) {
+    // Translate the selector reference into a stored selector.
+    StoredObjCSelector Selector;
+    Selector.NumArgs = SelectorRef.NumArgs;
+    Selector.Identifiers.reserve(SelectorRef.Identifiers.size());
+    for (auto piece : SelectorRef.Identifiers)
+      Selector.Identifiers.push_back(getIdentifier(piece));
+
+    // Look for the stored selector.
+    auto Known = SelectorIDs.find(Selector);
+    if (Known != SelectorIDs.end())
+      return Known->second;
+
+    // Add to the selector table.
+    Known = SelectorIDs.insert({Selector, SelectorIDs.size()}).first;
+    return Known->second;
+  }
+
+private:

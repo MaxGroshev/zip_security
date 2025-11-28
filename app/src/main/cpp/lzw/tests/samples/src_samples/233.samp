@@ -1,0 +1,50 @@
+
+/// Given a visibility attribute, return the explicit visibility
+/// associated with it.
+template <class T>
+static Visibility getVisibilityFromAttr(const T *attr) {
+  switch (attr->getVisibility()) {
+  case T::Default:
+    return DefaultVisibility;
+  case T::Hidden:
+    return HiddenVisibility;
+  case T::Protected:
+    return ProtectedVisibility;
+  }
+  llvm_unreachable("bad visibility kind");
+}
+
+/// Return the explicit visibility of the given declaration.
+static std::optional<Visibility>
+getVisibilityOf(const NamedDecl *D, NamedDecl::ExplicitVisibilityKind kind) {
+  // If we're ultimately computing the visibility of a type, look for
+  // a 'type_visibility' attribute before looking for 'visibility'.
+  if (kind == NamedDecl::VisibilityForType) {
+    if (const auto *A = D->getAttr<TypeVisibilityAttr>()) {
+      return getVisibilityFromAttr(A);
+    }
+  }
+
+  // If this declaration has an explicit visibility attribute, use it.
+  if (const auto *A = D->getAttr<VisibilityAttr>()) {
+    return getVisibilityFromAttr(A);
+  }
+
+  return std::nullopt;
+}
+
+LinkageInfo LinkageComputer::getLVForType(const Type &T,
+                                          LVComputationKind computation) {
+  if (computation.IgnoreAllVisibility)
+    return LinkageInfo(T.getLinkage(), DefaultVisibility, true);
+  return getTypeLinkageAndVisibility(&T);
+}
+
+/// Get the most restrictive linkage for the types in the given
+/// template parameter list.  For visibility purposes, template
+/// parameters are part of the signature of a template.
+LinkageInfo LinkageComputer::getLVForTemplateParameterList(
+    const TemplateParameterList *Params, LVComputationKind computation) {
+  LinkageInfo LV;
+  for (const NamedDecl *P : *Params) {
+    // Template type parameters are the most common and never

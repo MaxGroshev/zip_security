@@ -1,0 +1,50 @@
+
+  assert(Block && "There should be at least one scope changing Block");
+  return Block;
+}
+
+/// addImplicitDtorsForDestructor - Add implicit destructors generated for
+/// base and member objects in destructor.
+void CFGBuilder::addImplicitDtorsForDestructor(const CXXDestructorDecl *DD) {
+  assert(BuildOpts.AddImplicitDtors &&
+         "Can be called only when dtors should be added");
+  const CXXRecordDecl *RD = DD->getParent();
+
+  // At the end destroy virtual base objects.
+  for (const auto &VI : RD->vbases()) {
+    // TODO: Add a VirtualBaseBranch to see if the most derived class
+    // (which is different from the current class) is responsible for
+    // destroying them.
+    const CXXRecordDecl *CD = VI.getType()->getAsCXXRecordDecl();
+    if (CD && !CD->hasTrivialDestructor()) {
+      autoCreateBlock();
+      appendBaseDtor(Block, &VI);
+    }
+  }
+
+  // Before virtual bases destroy direct base objects.
+  for (const auto &BI : RD->bases()) {
+    if (!BI.isVirtual()) {
+      const CXXRecordDecl *CD = BI.getType()->getAsCXXRecordDecl();
+      if (CD && !CD->hasTrivialDestructor()) {
+        autoCreateBlock();
+        appendBaseDtor(Block, &BI);
+      }
+    }
+  }
+
+  // First destroy member objects.
+  for (auto *FI : RD->fields()) {
+    // Check for constant size array. Set type to array element type.
+    QualType QT = FI->getType();
+    // It may be a multidimensional array.
+    while (const ConstantArrayType *AT = Context->getAsConstantArrayType(QT)) {
+      if (AT->getSize() == 0)
+        break;
+      QT = AT->getElementType();
+    }
+
+    if (const CXXRecordDecl *CD = QT->getAsCXXRecordDecl())
+      if (!CD->hasTrivialDestructor()) {
+        autoCreateBlock();
+        appendMemberDtor(Block, FI);

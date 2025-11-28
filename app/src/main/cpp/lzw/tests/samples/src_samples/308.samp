@@ -1,0 +1,50 @@
+FunctionDecl::TemplatedKind FunctionDecl::getTemplatedKind() const {
+  if (TemplateOrSpecialization.isNull())
+    return TK_NonTemplate;
+  if (const auto *ND = TemplateOrSpecialization.dyn_cast<NamedDecl *>()) {
+    if (isa<FunctionDecl>(ND))
+      return TK_DependentNonTemplate;
+    assert(isa<FunctionTemplateDecl>(ND) &&
+           "No other valid types in NamedDecl");
+    return TK_FunctionTemplate;
+  }
+  if (TemplateOrSpecialization.is<MemberSpecializationInfo *>())
+    return TK_MemberSpecialization;
+  if (TemplateOrSpecialization.is<FunctionTemplateSpecializationInfo *>())
+    return TK_FunctionTemplateSpecialization;
+  if (TemplateOrSpecialization.is
+                               <DependentFunctionTemplateSpecializationInfo*>())
+    return TK_DependentFunctionTemplateSpecialization;
+
+  llvm_unreachable("Did we miss a TemplateOrSpecialization type?");
+}
+
+FunctionDecl *FunctionDecl::getInstantiatedFromMemberFunction() const {
+  if (MemberSpecializationInfo *Info = getMemberSpecializationInfo())
+    return cast<FunctionDecl>(Info->getInstantiatedFrom());
+
+  return nullptr;
+}
+
+MemberSpecializationInfo *FunctionDecl::getMemberSpecializationInfo() const {
+  if (auto *MSI =
+          TemplateOrSpecialization.dyn_cast<MemberSpecializationInfo *>())
+    return MSI;
+  if (auto *FTSI = TemplateOrSpecialization
+                       .dyn_cast<FunctionTemplateSpecializationInfo *>())
+    return FTSI->getMemberSpecializationInfo();
+  return nullptr;
+}
+
+void
+FunctionDecl::setInstantiationOfMemberFunction(ASTContext &C,
+                                               FunctionDecl *FD,
+                                               TemplateSpecializationKind TSK) {
+  assert(TemplateOrSpecialization.isNull() &&
+         "Member function is already a specialization");
+  MemberSpecializationInfo *Info
+    = new (C) MemberSpecializationInfo(FD, TSK);
+  TemplateOrSpecialization = Info;
+}
+
+FunctionTemplateDecl *FunctionDecl::getDescribedFunctionTemplate() const {

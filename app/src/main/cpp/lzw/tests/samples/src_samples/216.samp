@@ -1,0 +1,50 @@
+      }
+      Known = true;
+
+      convertMethod(method, CtxID, C.Name, SwiftVersion);
+    }
+
+    // Write all properties.
+    llvm::StringSet<> KnownInstanceProperties;
+    llvm::StringSet<> KnownClassProperties;
+    for (const auto &Property : C.Properties) {
+      // Check for duplicate property definitions.
+      if ((!Property.Kind || *Property.Kind == MethodKind::Instance) &&
+          !KnownInstanceProperties.insert(Property.Name).second) {
+        emitError(llvm::Twine("duplicate definition of instance property '") +
+                  C.Name + "." + Property.Name + "'");
+        continue;
+      }
+
+      if ((!Property.Kind || *Property.Kind == MethodKind::Class) &&
+          !KnownClassProperties.insert(Property.Name).second) {
+        emitError(llvm::Twine("duplicate definition of class property '") +
+                  C.Name + "." + Property.Name + "'");
+        continue;
+      }
+
+      // Translate from Property into ObjCPropertyInfo.
+      ObjCPropertyInfo PI;
+      convertAvailability(Property.Availability, PI, Property.Name);
+      PI.setSwiftPrivate(Property.SwiftPrivate);
+      PI.SwiftName = std::string(Property.SwiftName);
+      if (Property.Nullability)
+        PI.setNullabilityAudited(*Property.Nullability);
+      if (Property.SwiftImportAsAccessors)
+        PI.setSwiftImportAsAccessors(*Property.SwiftImportAsAccessors);
+      PI.setType(std::string(Property.Type));
+
+      // Add both instance and class properties with this name.
+      if (Property.Kind) {
+        Writer.addObjCProperty(CtxID, Property.Name,
+                               *Property.Kind == MethodKind::Instance, PI,
+                               SwiftVersion);
+      } else {
+        Writer.addObjCProperty(CtxID, Property.Name, true, PI, SwiftVersion);
+        Writer.addObjCProperty(CtxID, Property.Name, false, PI, SwiftVersion);
+      }
+    }
+  }
+
+  void convertNamespaceContext(std::optional<ContextID> ParentContextID,
+                               const Namespace &TheNamespace,

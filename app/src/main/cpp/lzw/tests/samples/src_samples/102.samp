@@ -1,0 +1,50 @@
+
+CFGBlock *CFGBuilder::VisitCXXBindTemporaryExprForTemporaryDtors(
+    CXXBindTemporaryExpr *E, bool ExternallyDestructed, TempDtorContext &Context) {
+  // First add destructors for temporaries in subexpression.
+  // Because VisitCXXBindTemporaryExpr calls setDestructed:
+  CFGBlock *B = VisitForTemporaryDtors(E->getSubExpr(), true, Context);
+  if (!ExternallyDestructed) {
+    // If lifetime of temporary is not prolonged (by assigning to constant
+    // reference) add destructor for it.
+
+    const CXXDestructorDecl *Dtor = E->getTemporary()->getDestructor();
+
+    if (Dtor->getParent()->isAnyDestructorNoReturn()) {
+      // If the destructor is marked as a no-return destructor, we need to
+      // create a new block for the destructor which does not have as a
+      // successor anything built thus far. Control won't flow out of this
+      // block.
+      if (B) Succ = B;
+      Block = createNoReturnBlock();
+    } else if (Context.needsTempDtorBranch()) {
+      // If we need to introduce a branch, we add a new block that we will hook
+      // up to a decision block later.
+      if (B) Succ = B;
+      Block = createBlock();
+    } else {
+      autoCreateBlock();
+    }
+    if (Context.needsTempDtorBranch()) {
+      Context.setDecisionPoint(Succ, E);
+    }
+    appendTemporaryDtor(Block, E);
+
+    B = Block;
+  }
+  return B;
+}
+
+void CFGBuilder::InsertTempDtorDecisionBlock(const TempDtorContext &Context,
+                                             CFGBlock *FalseSucc) {
+  if (!Context.TerminatorExpr) {
+    // If no temporary was found, we do not need to insert a decision point.
+    return;
+  }
+  assert(Context.TerminatorExpr);
+  CFGBlock *Decision = createBlock(false);
+  Decision->setTerminator(CFGTerminator(Context.TerminatorExpr,
+                                        CFGTerminator::TemporaryDtorsBranch));
+  addSuccessor(Decision, Block, !Context.KnownExecuted.isFalse());
+  addSuccessor(Decision, FalseSucc ? FalseSucc : Context.Succ,
+               !Context.KnownExecuted.isTrue());

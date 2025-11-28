@@ -1,0 +1,50 @@
+        cast<NamespaceDecl>(Ctx)->isRedundantInlineQualifierFor(NameInScope))
+      continue;
+
+    // Skip non-named contexts such as linkage specifications and ExportDecls.
+    const NamedDecl *ND = dyn_cast<NamedDecl>(Ctx);
+    if (!ND)
+      continue;
+
+    Contexts.push_back(Ctx);
+    NameInScope = ND->getDeclName();
+  }
+
+  for (const DeclContext *DC : llvm::reverse(Contexts)) {
+    if (const auto *Spec = dyn_cast<ClassTemplateSpecializationDecl>(DC)) {
+      OS << Spec->getName();
+      const TemplateArgumentList &TemplateArgs = Spec->getTemplateArgs();
+      printTemplateArgumentList(
+          OS, TemplateArgs.asArray(), P,
+          Spec->getSpecializedTemplate()->getTemplateParameters());
+    } else if (const auto *ND = dyn_cast<NamespaceDecl>(DC)) {
+      if (ND->isAnonymousNamespace()) {
+        OS << (P.MSVCFormatting ? "`anonymous namespace\'"
+                                : "(anonymous namespace)");
+      }
+      else
+        OS << *ND;
+    } else if (const auto *RD = dyn_cast<RecordDecl>(DC)) {
+      if (!RD->getIdentifier())
+        OS << "(anonymous " << RD->getKindName() << ')';
+      else
+        OS << *RD;
+    } else if (const auto *FD = dyn_cast<FunctionDecl>(DC)) {
+      const FunctionProtoType *FT = nullptr;
+      if (FD->hasWrittenPrototype())
+        FT = dyn_cast<FunctionProtoType>(FD->getType()->castAs<FunctionType>());
+
+      OS << *FD << '(';
+      if (FT) {
+        unsigned NumParams = FD->getNumParams();
+        for (unsigned i = 0; i < NumParams; ++i) {
+          if (i)
+            OS << ", ";
+          OS << FD->getParamDecl(i)->getType().stream(P);
+        }
+
+        if (FT->isVariadic()) {
+          if (NumParams > 0)
+            OS << ", ";
+          OS << "...";
+        }

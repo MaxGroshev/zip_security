@@ -1,0 +1,50 @@
+
+namespace llvm {
+namespace yaml {
+template <> struct MappingTraits<EnumConstant> {
+  static void mapping(IO &IO, EnumConstant &EC) {
+    IO.mapRequired("Name", EC.Name);
+    IO.mapOptional("Availability", EC.Availability.Mode,
+                   APIAvailability::Available);
+    IO.mapOptional("AvailabilityMsg", EC.Availability.Msg, StringRef(""));
+    IO.mapOptional("SwiftPrivate", EC.SwiftPrivate);
+    IO.mapOptional("SwiftName", EC.SwiftName, StringRef(""));
+  }
+};
+} // namespace yaml
+} // namespace llvm
+
+namespace {
+/// Syntactic sugar for EnumExtensibility and FlagEnum
+enum class EnumConvenienceAliasKind {
+  /// EnumExtensibility: none, FlagEnum: false
+  None,
+  /// EnumExtensibility: open, FlagEnum: false
+  CFEnum,
+  /// EnumExtensibility: open, FlagEnum: true
+  CFOptions,
+  /// EnumExtensibility: closed, FlagEnum: false
+  CFClosedEnum
+};
+} // namespace
+
+namespace llvm {
+namespace yaml {
+template <> struct ScalarEnumerationTraits<EnumConvenienceAliasKind> {
+  static void enumeration(IO &IO, EnumConvenienceAliasKind &ECAK) {
+    IO.enumCase(ECAK, "none", EnumConvenienceAliasKind::None);
+    IO.enumCase(ECAK, "CFEnum", EnumConvenienceAliasKind::CFEnum);
+    IO.enumCase(ECAK, "NSEnum", EnumConvenienceAliasKind::CFEnum);
+    IO.enumCase(ECAK, "CFOptions", EnumConvenienceAliasKind::CFOptions);
+    IO.enumCase(ECAK, "NSOptions", EnumConvenienceAliasKind::CFOptions);
+    IO.enumCase(ECAK, "CFClosedEnum", EnumConvenienceAliasKind::CFClosedEnum);
+    IO.enumCase(ECAK, "NSClosedEnum", EnumConvenienceAliasKind::CFClosedEnum);
+  }
+};
+} // namespace yaml
+} // namespace llvm
+
+namespace {
+struct Tag {
+  StringRef Name;
+  AvailabilityItem Availability;

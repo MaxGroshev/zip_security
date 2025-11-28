@@ -1,0 +1,50 @@
+  hash_value_type ComputeHash(key_type_ref Key) {
+    return static_cast<size_t>(Key.hashValue());
+  }
+
+  unsigned getUnversionedInfoSize(const GlobalFunctionInfo &GFI) {
+    return getFunctionInfoSize(GFI);
+  }
+
+  void emitUnversionedInfo(raw_ostream &OS, const GlobalFunctionInfo &GFI) {
+    emitFunctionInfo(OS, GFI);
+  }
+};
+} // namespace
+
+void APINotesWriter::Implementation::writeGlobalFunctionBlock(
+    llvm::BitstreamWriter &Stream) {
+  llvm::BCBlockRAII Scope(Stream, GLOBAL_FUNCTION_BLOCK_ID, 3);
+
+  if (GlobalFunctions.empty())
+    return;
+
+  {
+    llvm::SmallString<4096> HashTableBlob;
+    uint32_t Offset;
+    {
+      llvm::OnDiskChainedHashTableGenerator<GlobalFunctionTableInfo> Generator;
+      for (auto &F : GlobalFunctions)
+        Generator.insert(F.first, F.second);
+
+      llvm::raw_svector_ostream BlobStream(HashTableBlob);
+      // Make sure that no bucket is at offset 0
+      llvm::support::endian::write<uint32_t>(BlobStream, 0,
+                                             llvm::endianness::little);
+      Offset = Generator.Emit(BlobStream);
+    }
+
+    global_function_block::GlobalFunctionDataLayout GlobalFunctionData(Stream);
+    GlobalFunctionData.emit(Scratch, Offset, HashTableBlob);
+  }
+}
+
+namespace {
+/// Used to serialize the on-disk global enum constant.
+class EnumConstantTableInfo
+    : public VersionedTableInfo<EnumConstantTableInfo, unsigned,
+                                EnumConstantInfo> {
+public:
+  unsigned getKeyLength(key_type_ref) { return sizeof(uint32_t); }
+
+  void EmitKey(raw_ostream &OS, key_type_ref Key, unsigned) {

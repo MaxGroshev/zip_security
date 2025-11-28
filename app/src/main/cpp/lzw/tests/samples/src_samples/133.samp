@@ -1,0 +1,50 @@
+    for (StringRef TopHeaderName : TopHeaderNames)
+      if (auto FE = FileMgr.getOptionalFileRef(TopHeaderName))
+        TopHeaders.insert(*FE);
+    TopHeaderNames.clear();
+  }
+
+  return llvm::ArrayRef(TopHeaders.begin(), TopHeaders.end());
+}
+
+bool Module::directlyUses(const Module *Requested) {
+  auto *Top = getTopLevelModule();
+
+  // A top-level module implicitly uses itself.
+  if (Requested->isSubModuleOf(Top))
+    return true;
+
+  for (auto *Use : Top->DirectUses)
+    if (Requested->isSubModuleOf(Use))
+      return true;
+
+  // Anyone is allowed to use our builtin stdarg.h and stddef.h and their
+  // accompanying modules.
+  if (Requested->getTopLevelModuleName() == "_Builtin_stdarg" ||
+      Requested->getTopLevelModuleName() == "_Builtin_stddef")
+    return true;
+
+  if (NoUndeclaredIncludes)
+    UndeclaredUses.insert(Requested);
+
+  return false;
+}
+
+void Module::addRequirement(StringRef Feature, bool RequiredState,
+                            const LangOptions &LangOpts,
+                            const TargetInfo &Target) {
+  Requirements.push_back(Requirement(std::string(Feature), RequiredState));
+
+  // If this feature is currently available, we're done.
+  if (hasFeature(Feature, LangOpts, Target) == RequiredState)
+    return;
+
+  markUnavailable(/*Unimportable*/true);
+}
+
+void Module::markUnavailable(bool Unimportable) {
+  auto needUpdate = [Unimportable](Module *M) {
+    return M->IsAvailable || (!M->IsUnimportable && Unimportable);
+  };
+
+  if (!needUpdate(this))

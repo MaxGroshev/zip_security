@@ -1,0 +1,50 @@
+  //     - an enumerator belonging to an enumeration with external linkage; or
+  } else if (isa<EnumConstantDecl>(D)) {
+    LinkageInfo EnumLV = getLVForDecl(cast<NamedDecl>(D->getDeclContext()),
+                                      computation);
+    if (!isExternalFormalLinkage(EnumLV.getLinkage()))
+      return LinkageInfo::none();
+    LV.merge(EnumLV);
+
+  //     - a template
+  } else if (const auto *temp = dyn_cast<TemplateDecl>(D)) {
+    bool considerVisibility = !hasExplicitVisibilityAlready(computation);
+    LinkageInfo tempLV =
+      getLVForTemplateParameterList(temp->getTemplateParameters(), computation);
+    LV.mergeMaybeWithVisibility(tempLV, considerVisibility);
+
+  //     An unnamed namespace or a namespace declared directly or indirectly
+  //     within an unnamed namespace has internal linkage. All other namespaces
+  //     have external linkage.
+  //
+  // We handled names in anonymous namespaces above.
+  } else if (isa<NamespaceDecl>(D)) {
+    return LV;
+
+  // By extension, we assign external linkage to Objective-C
+  // interfaces.
+  } else if (isa<ObjCInterfaceDecl>(D)) {
+    // fallout
+
+  } else if (auto *TD = dyn_cast<TypedefNameDecl>(D)) {
+    // A typedef declaration has linkage if it gives a type a name for
+    // linkage purposes.
+    if (!TD->getAnonDeclWithTypedefName(/*AnyRedecl*/true))
+      return LinkageInfo::none();
+
+  } else if (isa<MSGuidDecl>(D)) {
+    // A GUID behaves like an inline variable with external linkage. Fall
+    // through.
+
+  // Everything not covered here has no linkage.
+  } else {
+    return LinkageInfo::none();
+  }
+
+  // If we ended up with non-externally-visible linkage, visibility should
+  // always be default.
+  if (!isExternallyVisible(LV.getLinkage()))
+    return LinkageInfo(LV.getLinkage(), DefaultVisibility, false);
+
+  return LV;
+}

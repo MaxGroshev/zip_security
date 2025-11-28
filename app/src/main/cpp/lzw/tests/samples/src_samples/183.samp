@@ -1,0 +1,50 @@
+    writer.write<uint16_t>(nsErrorDomain->size() + 1);
+    OS.write(nsErrorDomain->c_str(), CTI.getNSErrorDomain()->size());
+  } else {
+    writer.write<uint16_t>(0);
+  }
+}
+
+/// Used to serialize the on-disk Objective-C property table.
+class ObjCContextInfoTableInfo
+    : public VersionedTableInfo<ObjCContextInfoTableInfo, unsigned,
+                                ObjCContextInfo> {
+public:
+  unsigned getKeyLength(key_type_ref) { return sizeof(uint32_t); }
+
+  void EmitKey(raw_ostream &OS, key_type_ref Key, unsigned) {
+    llvm::support::endian::Writer writer(OS, llvm::endianness::little);
+    writer.write<uint32_t>(Key);
+  }
+
+  hash_value_type ComputeHash(key_type_ref Key) {
+    return static_cast<size_t>(llvm::hash_value(Key));
+  }
+
+  unsigned getUnversionedInfoSize(const ObjCContextInfo &OCI) {
+    return getCommonTypeInfoSize(OCI) + 1;
+  }
+
+  void emitUnversionedInfo(raw_ostream &OS, const ObjCContextInfo &OCI) {
+    emitCommonTypeInfo(OS, OCI);
+
+    uint8_t payload = 0;
+    if (auto swiftImportAsNonGeneric = OCI.getSwiftImportAsNonGeneric())
+      payload |= (0x01 << 1) | (uint8_t)swiftImportAsNonGeneric.value();
+    payload <<= 2;
+    if (auto swiftObjCMembers = OCI.getSwiftObjCMembers())
+      payload |= (0x01 << 1) | (uint8_t)swiftObjCMembers.value();
+    payload <<= 3;
+    if (auto nullable = OCI.getDefaultNullability())
+      payload |= (0x01 << 2) | static_cast<uint8_t>(*nullable);
+    payload = (payload << 1) | (OCI.hasDesignatedInits() ? 1 : 0);
+
+    OS << payload;
+  }
+};
+} // namespace
+
+void APINotesWriter::Implementation::writeObjCContextBlock(
+    llvm::BitstreamWriter &Stream) {
+  llvm::BCBlockRAII restoreBlock(Stream, OBJC_CONTEXT_BLOCK_ID, 3);
+

@@ -1,0 +1,50 @@
+        S->isTypeDependent() || S->isValueDependent())
+      return {};
+
+    if (BinaryOperator *Bop = dyn_cast<BinaryOperator>(S)) {
+      if (Bop->isLogicalOp() || Bop->isEqualityOp()) {
+        // Check the cache first.
+        CachedBoolEvalsTy::iterator I = CachedBoolEvals.find(S);
+        if (I != CachedBoolEvals.end())
+          return I->second; // already in map;
+
+        // Retrieve result at first, or the map might be updated.
+        TryResult Result = evaluateAsBooleanConditionNoCache(S);
+        CachedBoolEvals[S] = Result; // update or insert
+        return Result;
+      }
+      else {
+        switch (Bop->getOpcode()) {
+          default: break;
+          // For 'x & 0' and 'x * 0', we can determine that
+          // the value is always false.
+          case BO_Mul:
+          case BO_And: {
+            // If either operand is zero, we know the value
+            // must be false.
+            Expr::EvalResult LHSResult;
+            if (Bop->getLHS()->EvaluateAsInt(LHSResult, *Context)) {
+              llvm::APSInt IntVal = LHSResult.Val.getInt();
+              if (!IntVal.getBoolValue()) {
+                return TryResult(false);
+              }
+            }
+            Expr::EvalResult RHSResult;
+            if (Bop->getRHS()->EvaluateAsInt(RHSResult, *Context)) {
+              llvm::APSInt IntVal = RHSResult.Val.getInt();
+              if (!IntVal.getBoolValue()) {
+                return TryResult(false);
+              }
+            }
+          }
+          break;
+        }
+      }
+    }
+
+    return evaluateAsBooleanConditionNoCache(S);
+  }
+
+  /// Evaluate as boolean \param E without using the cache.
+  TryResult evaluateAsBooleanConditionNoCache(Expr *E) {
+    if (BinaryOperator *Bop = dyn_cast<BinaryOperator>(E)) {

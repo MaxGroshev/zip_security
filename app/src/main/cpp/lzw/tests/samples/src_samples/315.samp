@@ -1,0 +1,50 @@
+        FTSInfo->getPointOfInstantiation().isInvalid()) {
+      FTSInfo->setPointOfInstantiation(PointOfInstantiation);
+      if (ASTMutationListener *L = getASTContext().getASTMutationListener())
+        L->InstantiationRequested(this);
+    }
+  } else if (MemberSpecializationInfo *MSInfo
+             = TemplateOrSpecialization.dyn_cast<MemberSpecializationInfo*>()) {
+    MSInfo->setTemplateSpecializationKind(TSK);
+    if (TSK != TSK_ExplicitSpecialization &&
+        PointOfInstantiation.isValid() &&
+        MSInfo->getPointOfInstantiation().isInvalid()) {
+      MSInfo->setPointOfInstantiation(PointOfInstantiation);
+      if (ASTMutationListener *L = getASTContext().getASTMutationListener())
+        L->InstantiationRequested(this);
+    }
+  } else
+    llvm_unreachable("Function cannot have a template specialization kind");
+}
+
+SourceLocation FunctionDecl::getPointOfInstantiation() const {
+  if (FunctionTemplateSpecializationInfo *FTSInfo
+        = TemplateOrSpecialization.dyn_cast<
+                                        FunctionTemplateSpecializationInfo*>())
+    return FTSInfo->getPointOfInstantiation();
+  if (MemberSpecializationInfo *MSInfo =
+          TemplateOrSpecialization.dyn_cast<MemberSpecializationInfo *>())
+    return MSInfo->getPointOfInstantiation();
+
+  return SourceLocation();
+}
+
+bool FunctionDecl::isOutOfLine() const {
+  if (Decl::isOutOfLine())
+    return true;
+
+  // If this function was instantiated from a member function of a
+  // class template, check whether that member function was defined out-of-line.
+  if (FunctionDecl *FD = getInstantiatedFromMemberFunction()) {
+    const FunctionDecl *Definition;
+    if (FD->hasBody(Definition))
+      return Definition->isOutOfLine();
+  }
+
+  // If this function was instantiated from a function template,
+  // check whether that function template was defined out-of-line.
+  if (FunctionTemplateDecl *FunTmpl = getPrimaryTemplate()) {
+    const FunctionDecl *Definition;
+    if (FunTmpl->getTemplatedDecl()->hasBody(Definition))
+      return Definition->isOutOfLine();
+  }

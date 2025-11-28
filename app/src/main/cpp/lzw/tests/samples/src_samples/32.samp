@@ -1,0 +1,50 @@
+  // branch per constructor, since the Standard states that all virtual bases
+  // shall be initialized before non-virtual bases and direct data members.
+  if (const auto *CD = dyn_cast_or_null<CXXConstructorDecl>(D)) {
+    CFGBlock *VBaseSucc = nullptr;
+    for (auto *I : llvm::reverse(CD->inits())) {
+      if (BuildOpts.AddVirtualBaseBranches && !VBaseSucc &&
+          I->isBaseInitializer() && I->isBaseVirtual()) {
+        // We've reached the first virtual base init while iterating in reverse
+        // order. Make a new block for virtual base initializers so that we
+        // could skip them.
+        VBaseSucc = Succ = B ? B : &cfg->getExit();
+        Block = createBlock();
+      }
+      B = addInitializer(I);
+      if (badCFG)
+        return nullptr;
+    }
+    if (VBaseSucc) {
+      // Make a branch block for potentially skipping virtual base initializers.
+      Succ = VBaseSucc;
+      B = createBlock();
+      B->setTerminator(
+          CFGTerminator(nullptr, CFGTerminator::VirtualBaseBranch));
+      addSuccessor(B, Block, true);
+    }
+  }
+
+  if (B)
+    Succ = B;
+
+  // Backpatch the gotos whose label -> block mappings we didn't know when we
+  // encountered them.
+  for (BackpatchBlocksTy::iterator I = BackpatchBlocks.begin(),
+                                   E = BackpatchBlocks.end(); I != E; ++I ) {
+
+    CFGBlock *B = I->block;
+    if (auto *G = dyn_cast<GotoStmt>(B->getTerminator())) {
+      LabelMapTy::iterator LI = LabelMap.find(G->getLabel());
+      // If there is no target for the goto, then we are looking at an
+      // incomplete AST.  Handle this by not registering a successor.
+      if (LI == LabelMap.end())
+        continue;
+      JumpTarget JT = LI->second;
+
+      CFGBlock *SuccBlk = createScopeChangesHandlingBlock(
+          I->scopePosition, B, JT.scopePosition, JT.block);
+      addSuccessor(B, SuccBlk);
+    } else if (auto *G = dyn_cast<GCCAsmStmt>(B->getTerminator())) {
+      CFGBlock *Successor  = (I+1)->block;
+      for (auto *L : G->labels()) {

@@ -1,0 +1,50 @@
+  // order that they will appear in the CFG.  Because the CFG is built
+  // bottom-up, this means we visit them in their natural order, which
+  // reverses them in the CFG.
+  CFGBlock *B = Block;
+  for (Stmt *Child : E->children())
+    if (Child)
+      if (CFGBlock *R = VisitForTemporaryDtors(Child, ExternallyDestructed, Context))
+        B = R;
+
+  return B;
+}
+
+CFGBlock *CFGBuilder::VisitBinaryOperatorForTemporaryDtors(
+    BinaryOperator *E, bool ExternallyDestructed, TempDtorContext &Context) {
+  if (E->isCommaOp()) {
+    // For the comma operator, the LHS expression is evaluated before the RHS
+    // expression, so prepend temporary destructors for the LHS first.
+    CFGBlock *LHSBlock = VisitForTemporaryDtors(E->getLHS(), false, Context);
+    CFGBlock *RHSBlock = VisitForTemporaryDtors(E->getRHS(), ExternallyDestructed, Context);
+    return RHSBlock ? RHSBlock : LHSBlock;
+  }
+
+  if (E->isLogicalOp()) {
+    VisitForTemporaryDtors(E->getLHS(), false, Context);
+    TryResult RHSExecuted = tryEvaluateBool(E->getLHS());
+    if (RHSExecuted.isKnown() && E->getOpcode() == BO_LOr)
+      RHSExecuted.negate();
+
+    // We do not know at CFG-construction time whether the right-hand-side was
+    // executed, thus we add a branch node that depends on the temporary
+    // constructor call.
+    TempDtorContext RHSContext(
+        bothKnownTrue(Context.KnownExecuted, RHSExecuted));
+    VisitForTemporaryDtors(E->getRHS(), false, RHSContext);
+    InsertTempDtorDecisionBlock(RHSContext);
+
+    return Block;
+  }
+
+  if (E->isAssignmentOp()) {
+    // For assignment operators, the RHS expression is evaluated before the LHS
+    // expression, so prepend temporary destructors for the RHS first.
+    CFGBlock *RHSBlock = VisitForTemporaryDtors(E->getRHS(), false, Context);
+    CFGBlock *LHSBlock = VisitForTemporaryDtors(E->getLHS(), false, Context);
+    return LHSBlock ? LHSBlock : RHSBlock;
+  }
+
+  // Any other operator is visited normally.
+  return VisitChildrenForTemporaryDtors(E, ExternallyDestructed, Context);
+}

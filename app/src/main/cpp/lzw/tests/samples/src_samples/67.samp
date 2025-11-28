@@ -1,0 +1,50 @@
+
+  if (SEHExceptStmt *Except = Terminator->getExceptHandler()) {
+    // The code after the try is the implicit successor if there's an __except.
+    Succ = SEHTrySuccessor;
+    Block = nullptr;
+    CFGBlock *ExceptBlock = VisitSEHExceptStmt(Except);
+    if (!ExceptBlock)
+      return nullptr;
+    // Add this block to the list of successors for the block with the try
+    // statement.
+    addSuccessor(NewTryTerminatedBlock, ExceptBlock);
+  }
+  if (PrevSEHTryTerminatedBlock)
+    addSuccessor(NewTryTerminatedBlock, PrevSEHTryTerminatedBlock);
+  else
+    addSuccessor(NewTryTerminatedBlock, &cfg->getExit());
+
+  // The code after the try is the implicit successor.
+  Succ = SEHTrySuccessor;
+
+  // Save the current "__try" context.
+  SaveAndRestore SaveTry(TryTerminatedBlock, NewTryTerminatedBlock);
+  cfg->addTryDispatchBlock(TryTerminatedBlock);
+
+  // Save the current value for the __leave target.
+  // All __leaves should go to the code following the __try
+  // (FIXME: or if the __try has a __finally, to the __finally.)
+  SaveAndRestore save_break(SEHLeaveJumpTarget);
+  SEHLeaveJumpTarget = JumpTarget(SEHTrySuccessor, ScopePos);
+
+  assert(Terminator->getTryBlock() && "__try must contain a non-NULL body");
+  Block = nullptr;
+  return addStmt(Terminator->getTryBlock());
+}
+
+CFGBlock *CFGBuilder::VisitLabelStmt(LabelStmt *L) {
+  // Get the block of the labeled statement.  Add it to our map.
+  addStmt(L->getSubStmt());
+  CFGBlock *LabelBlock = Block;
+
+  if (!LabelBlock)              // This can happen when the body is empty, i.e.
+    LabelBlock = createBlock(); // scopes that only contains NullStmts.
+
+  assert(!LabelMap.contains(L->getDecl()) && "label already in map");
+  LabelMap[L->getDecl()] = JumpTarget(LabelBlock, ScopePos);
+
+  // Labels partition blocks, so this is the end of the basic block we were
+  // processing (L is the block's label).  Because this is label (and we have
+  // already processed the substatement) there is no extra control-flow to worry
+  // about.

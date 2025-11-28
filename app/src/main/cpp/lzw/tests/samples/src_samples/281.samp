@@ -1,0 +1,50 @@
+
+  return nullptr;
+}
+
+bool VarDecl::hasICEInitializer(const ASTContext &Context) const {
+  const Expr *Init = getInit();
+  assert(Init && "no initializer");
+
+  EvaluatedStmt *Eval = ensureEvaluatedStmt();
+  if (!Eval->CheckedForICEInit) {
+    Eval->CheckedForICEInit = true;
+    Eval->HasICEInit = Init->isIntegerConstantExpr(Context);
+  }
+  return Eval->HasICEInit;
+}
+
+bool VarDecl::hasConstantInitialization() const {
+  // In C, all globals (and only globals) have constant initialization.
+  if (hasGlobalStorage() && !getASTContext().getLangOpts().CPlusPlus)
+    return true;
+
+  // In C++, it depends on whether the evaluation at the point of definition
+  // was evaluatable as a constant initializer.
+  if (EvaluatedStmt *Eval = getEvaluatedStmt())
+    return Eval->HasConstantInitialization;
+
+  return false;
+}
+
+bool VarDecl::checkForConstantInitialization(
+    SmallVectorImpl<PartialDiagnosticAt> &Notes) const {
+  EvaluatedStmt *Eval = ensureEvaluatedStmt();
+  // If we ask for the value before we know whether we have a constant
+  // initializer, we can compute the wrong value (for example, due to
+  // std::is_constant_evaluated()).
+  assert(!Eval->WasEvaluated &&
+         "already evaluated var value before checking for constant init");
+  assert((getASTContext().getLangOpts().CPlusPlus ||
+          getASTContext().getLangOpts().C23) &&
+         "only meaningful in C++/C23");
+
+  assert(!getInit()->isValueDependent());
+
+  // Evaluate the initializer to check whether it's a constant expression.
+  Eval->HasConstantInitialization =
+      evaluateValueImpl(Notes, true) && Notes.empty();
+
+  // If evaluation as a constant initializer failed, allow re-evaluation as a
+  // non-constant initializer if we later find we want the value.
+  if (!Eval->HasConstantInitialization)

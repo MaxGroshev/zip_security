@@ -1,0 +1,50 @@
+/// Record the name of a block.
+void emitBlockID(llvm::BitstreamWriter &Stream, unsigned ID,
+                 llvm::StringRef Name) {
+  Stream.EmitRecord(llvm::bitc::BLOCKINFO_CODE_SETBID,
+                    llvm::ArrayRef<unsigned>{ID});
+
+  // Emit the block name if present.
+  if (Name.empty())
+    return;
+  Stream.EmitRecord(
+      llvm::bitc::BLOCKINFO_CODE_BLOCKNAME,
+      llvm::ArrayRef<unsigned char>(
+          const_cast<unsigned char *>(
+              reinterpret_cast<const unsigned char *>(Name.data())),
+          Name.size()));
+}
+
+/// Record the name of a record within a block.
+void emitRecordID(llvm::BitstreamWriter &Stream, unsigned ID,
+                  llvm::StringRef Name) {
+  assert(ID < 256 && "can't fit record ID in next to name");
+
+  llvm::SmallVector<unsigned char, 64> Buffer;
+  Buffer.resize(Name.size() + 1);
+  Buffer[0] = ID;
+  memcpy(Buffer.data() + 1, Name.data(), Name.size());
+
+  Stream.EmitRecord(llvm::bitc::BLOCKINFO_CODE_SETRECORDNAME, Buffer);
+}
+} // namespace
+
+void APINotesWriter::Implementation::writeBlockInfoBlock(
+    llvm::BitstreamWriter &Stream) {
+  llvm::BCBlockRAII Scope(Stream, llvm::bitc::BLOCKINFO_BLOCK_ID, 2);
+
+#define BLOCK(Block) emitBlockID(Stream, Block##_ID, #Block)
+#define BLOCK_RECORD(NameSpace, Block)                                         \
+  emitRecordID(Stream, NameSpace::Block, #Block)
+  BLOCK(CONTROL_BLOCK);
+  BLOCK_RECORD(control_block, METADATA);
+  BLOCK_RECORD(control_block, MODULE_NAME);
+
+  BLOCK(IDENTIFIER_BLOCK);
+  BLOCK_RECORD(identifier_block, IDENTIFIER_DATA);
+
+  BLOCK(OBJC_CONTEXT_BLOCK);
+  BLOCK_RECORD(objc_context_block, OBJC_CONTEXT_ID_DATA);
+
+  BLOCK(OBJC_PROPERTY_BLOCK);
+  BLOCK_RECORD(objc_property_block, OBJC_PROPERTY_DATA);

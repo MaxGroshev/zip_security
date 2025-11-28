@@ -1,0 +1,50 @@
+      if (Expr *Init = VD->getInit()) {
+        autoCreateBlock();
+        const DeclStmt *DS = W->getConditionVariableDeclStmt();
+        assert(DS->isSingleDecl());
+        findConstructionContexts(
+            ConstructionContextLayer::create(cfg->getBumpVectorContext(),
+                                             const_cast<DeclStmt *>(DS)),
+            Init);
+        appendStmt(Block, DS);
+        EntryConditionBlock = addStmt(Init);
+        assert(Block == EntryConditionBlock);
+        maybeAddScopeBeginForVarDecl(EntryConditionBlock, VD, C);
+      }
+    }
+
+    if (Block && badCFG)
+      return nullptr;
+
+    // See if this is a known constant.
+    const TryResult& KnownVal = tryEvaluateBool(C);
+
+    // Add the loop body entry as a successor to the condition.
+    addSuccessor(ExitConditionBlock, KnownVal.isFalse() ? nullptr : BodyBlock);
+    // Link up the condition block with the code that follows the loop.  (the
+    // false branch).
+    addSuccessor(ExitConditionBlock,
+                 KnownVal.isTrue() ? nullptr : LoopSuccessor);
+  } while(false);
+
+  // Link up the loop-back block to the entry condition block.
+  addSuccessor(TransitionBlock, EntryConditionBlock);
+
+  // There can be no more statements in the condition block since we loop back
+  // to this block.  NULL out Block to force lazy creation of another block.
+  Block = nullptr;
+
+  // Return the condition block, which is the dominating block for the loop.
+  Succ = EntryConditionBlock;
+  return EntryConditionBlock;
+}
+
+CFGBlock *CFGBuilder::VisitArrayInitLoopExpr(ArrayInitLoopExpr *A,
+                                             AddStmtChoice asc) {
+  if (asc.alwaysAdd(*this, A)) {
+    autoCreateBlock();
+    appendStmt(Block, A);
+  }
+
+  CFGBlock *B = Block;
+

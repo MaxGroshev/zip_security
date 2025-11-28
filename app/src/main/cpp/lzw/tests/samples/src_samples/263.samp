@@ -1,0 +1,50 @@
+    // Give the printName override a chance to pick a different name before we
+    // fall back to "(anonymous)".
+    SmallString<64> NameBuffer;
+    llvm::raw_svector_ostream NameOS(NameBuffer);
+    printName(NameOS, P);
+    if (NameBuffer.empty())
+      OS << "(anonymous)";
+    else
+      OS << NameBuffer;
+  }
+}
+
+void NamedDecl::printNestedNameSpecifier(raw_ostream &OS) const {
+  printNestedNameSpecifier(OS, getASTContext().getPrintingPolicy());
+}
+
+void NamedDecl::printNestedNameSpecifier(raw_ostream &OS,
+                                         const PrintingPolicy &P) const {
+  const DeclContext *Ctx = getDeclContext();
+
+  // For ObjC methods and properties, look through categories and use the
+  // interface as context.
+  if (auto *MD = dyn_cast<ObjCMethodDecl>(this)) {
+    if (auto *ID = MD->getClassInterface())
+      Ctx = ID;
+  } else if (auto *PD = dyn_cast<ObjCPropertyDecl>(this)) {
+    if (auto *MD = PD->getGetterMethodDecl())
+      if (auto *ID = MD->getClassInterface())
+        Ctx = ID;
+  } else if (auto *ID = dyn_cast<ObjCIvarDecl>(this)) {
+    if (auto *CI = ID->getContainingInterface())
+      Ctx = CI;
+  }
+
+  if (Ctx->isFunctionOrMethod())
+    return;
+
+  using ContextsTy = SmallVector<const DeclContext *, 8>;
+  ContextsTy Contexts;
+
+  // Collect named contexts.
+  DeclarationName NameInScope = getDeclName();
+  for (; Ctx; Ctx = Ctx->getParent()) {
+    // Suppress anonymous namespace if requested.
+    if (P.SuppressUnwrittenScope && isa<NamespaceDecl>(Ctx) &&
+        cast<NamespaceDecl>(Ctx)->isAnonymousNamespace())
+      continue;
+
+    // Suppress inline namespace if it doesn't make the result ambiguous.
+    if (P.SuppressInlineNamespace && Ctx->isInlineNamespace() && NameInScope &&

@@ -1,0 +1,50 @@
+  }
+
+  bool hasTrivialDestructor(const VarDecl *VD) const;
+  bool needsAutomaticDestruction(const VarDecl *VD) const;
+};
+
+} // namespace
+
+Expr *
+clang::extractElementInitializerFromNestedAILE(const ArrayInitLoopExpr *AILE) {
+  if (!AILE)
+    return nullptr;
+
+  Expr *AILEInit = AILE->getSubExpr();
+  while (const auto *E = dyn_cast<ArrayInitLoopExpr>(AILEInit))
+    AILEInit = E->getSubExpr();
+
+  return AILEInit;
+}
+
+inline bool AddStmtChoice::alwaysAdd(CFGBuilder &builder,
+                                     const Stmt *stmt) const {
+  return builder.alwaysAdd(stmt) || kind == AlwaysAdd;
+}
+
+bool CFGBuilder::alwaysAdd(const Stmt *stmt) {
+  bool shouldAdd = BuildOpts.alwaysAdd(stmt);
+
+  if (!BuildOpts.forcedBlkExprs)
+    return shouldAdd;
+
+  if (lastLookup == stmt) {
+    if (cachedEntry) {
+      assert(cachedEntry->first == stmt);
+      return true;
+    }
+    return shouldAdd;
+  }
+
+  lastLookup = stmt;
+
+  // Perform the lookup!
+  CFG::BuildOptions::ForcedBlkExprs *fb = *BuildOpts.forcedBlkExprs;
+
+  if (!fb) {
+    // No need to update 'cachedEntry', since it will always be null.
+    assert(!cachedEntry);
+    return shouldAdd;
+  }
+

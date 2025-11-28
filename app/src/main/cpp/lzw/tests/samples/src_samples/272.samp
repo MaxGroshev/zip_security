@@ -1,0 +1,50 @@
+  return new (C, ID)
+      VarDecl(Var, C, nullptr, SourceLocation(), SourceLocation(), nullptr,
+              QualType(), nullptr, SC_None);
+}
+
+void VarDecl::setStorageClass(StorageClass SC) {
+  assert(isLegalForVariable(SC));
+  VarDeclBits.SClass = SC;
+}
+
+VarDecl::TLSKind VarDecl::getTLSKind() const {
+  switch (VarDeclBits.TSCSpec) {
+  case TSCS_unspecified:
+    if (!hasAttr<ThreadAttr>() &&
+        !(getASTContext().getLangOpts().OpenMPUseTLS &&
+          getASTContext().getTargetInfo().isTLSSupported() &&
+          hasAttr<OMPThreadPrivateDeclAttr>()))
+      return TLS_None;
+    return ((getASTContext().getLangOpts().isCompatibleWithMSVC(
+                LangOptions::MSVC2015)) ||
+            hasAttr<OMPThreadPrivateDeclAttr>())
+               ? TLS_Dynamic
+               : TLS_Static;
+  case TSCS___thread: // Fall through.
+  case TSCS__Thread_local:
+    return TLS_Static;
+  case TSCS_thread_local:
+    return TLS_Dynamic;
+  }
+  llvm_unreachable("Unknown thread storage class specifier!");
+}
+
+SourceRange VarDecl::getSourceRange() const {
+  if (const Expr *Init = getInit()) {
+    SourceLocation InitEnd = Init->getEndLoc();
+    // If Init is implicit, ignore its source range and fallback on
+    // DeclaratorDecl::getSourceRange() to handle postfix elements.
+    if (InitEnd.isValid() && InitEnd != getLocation())
+      return SourceRange(getOuterLocStart(), InitEnd);
+  }
+  return DeclaratorDecl::getSourceRange();
+}
+
+template<typename T>
+static LanguageLinkage getDeclLanguageLinkage(const T &D) {
+  // C++ [dcl.link]p1: All function types, function names with external linkage,
+  // and variable names with external linkage have a language linkage.
+  if (!D.hasExternalFormalLinkage())
+    return NoLanguageLinkage;
+

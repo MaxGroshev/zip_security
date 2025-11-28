@@ -1,0 +1,50 @@
+      OS << '"';
+    }
+  }
+}
+
+template<typename Container>
+static void printModuleId(raw_ostream &OS, const Container &C) {
+  return printModuleId(OS, C.begin(), C.end());
+}
+
+std::string Module::getFullModuleName(bool AllowStringLiterals) const {
+  SmallVector<StringRef, 2> Names;
+
+  // Build up the set of module names (from innermost to outermost).
+  for (const Module *M = this; M; M = M->Parent)
+    Names.push_back(M->Name);
+
+  std::string Result;
+
+  llvm::raw_string_ostream Out(Result);
+  printModuleId(Out, Names.rbegin(), Names.rend(), AllowStringLiterals);
+  Out.flush();
+
+  return Result;
+}
+
+bool Module::fullModuleNameIs(ArrayRef<StringRef> nameParts) const {
+  for (const Module *M = this; M; M = M->Parent) {
+    if (nameParts.empty() || M->Name != nameParts.back())
+      return false;
+    nameParts = nameParts.drop_back();
+  }
+  return nameParts.empty();
+}
+
+OptionalDirectoryEntryRef Module::getEffectiveUmbrellaDir() const {
+  if (const auto *Hdr = std::get_if<FileEntryRef>(&Umbrella))
+    return Hdr->getDir();
+  if (const auto *Dir = std::get_if<DirectoryEntryRef>(&Umbrella))
+    return *Dir;
+  return std::nullopt;
+}
+
+void Module::addTopHeader(FileEntryRef File) {
+  assert(File);
+  TopHeaders.insert(File);
+}
+
+ArrayRef<FileEntryRef> Module::getTopHeaders(FileManager &FileMgr) {
+  if (!TopHeaderNames.empty()) {

@@ -1,0 +1,50 @@
+    }
+  }
+
+  // Specially handle "if (expr1 || ...)" and "if (expr1 && ...)" by
+  // having these handle the actual control-flow jump.  Note that
+  // if we introduce a condition variable, e.g. "if (int x = exp1 || exp2)"
+  // we resort to the old control-flow behavior.  This special handling
+  // removes infeasible paths from the control-flow graph by having the
+  // control-flow transfer of '&&' or '||' go directly into the then/else
+  // blocks directly.
+  BinaryOperator *Cond =
+      (I->isConsteval() || I->getConditionVariable())
+          ? nullptr
+          : dyn_cast<BinaryOperator>(I->getCond()->IgnoreParens());
+  CFGBlock *LastBlock;
+  if (Cond && Cond->isLogicalOp())
+    LastBlock = VisitLogicalOperator(Cond, I, ThenBlock, ElseBlock).first;
+  else {
+    // Now create a new block containing the if statement.
+    Block = createBlock(false);
+
+    // Set the terminator of the new block to the If statement.
+    Block->setTerminator(I);
+
+    // See if this is a known constant.
+    TryResult KnownVal;
+    if (!I->isConsteval())
+      KnownVal = tryEvaluateBool(I->getCond());
+
+    // Add the successors.  If we know that specific branches are
+    // unreachable, inform addSuccessor() of that knowledge.
+    addSuccessor(Block, ThenBlock, /* IsReachable = */ !KnownVal.isFalse());
+    addSuccessor(Block, ElseBlock, /* IsReachable = */ !KnownVal.isTrue());
+
+    // Add the condition as the last statement in the new block.  This may
+    // create new blocks as the condition may contain control-flow.  Any newly
+    // created blocks will be pointed to be "Block".
+    LastBlock = addStmt(I->getCond());
+
+    // If the IfStmt contains a condition variable, add it and its
+    // initializer to the CFG.
+    if (const DeclStmt* DS = I->getConditionVariableDeclStmt()) {
+      autoCreateBlock();
+      LastBlock = addStmt(const_cast<DeclStmt *>(DS));
+    }
+  }
+
+  // Finally, if the IfStmt contains a C++17 init-stmt, add it to the CFG.
+  if (Stmt *Init = I->getInit()) {
+    autoCreateBlock();

@@ -1,0 +1,50 @@
+//===----------------------------------------------------------------------===//
+// FieldDecl Implementation
+//===----------------------------------------------------------------------===//
+
+FieldDecl *FieldDecl::Create(const ASTContext &C, DeclContext *DC,
+                             SourceLocation StartLoc, SourceLocation IdLoc,
+                             IdentifierInfo *Id, QualType T,
+                             TypeSourceInfo *TInfo, Expr *BW, bool Mutable,
+                             InClassInitStyle InitStyle) {
+  return new (C, DC) FieldDecl(Decl::Field, DC, StartLoc, IdLoc, Id, T, TInfo,
+                               BW, Mutable, InitStyle);
+}
+
+FieldDecl *FieldDecl::CreateDeserialized(ASTContext &C, unsigned ID) {
+  return new (C, ID) FieldDecl(Field, nullptr, SourceLocation(),
+                               SourceLocation(), nullptr, QualType(), nullptr,
+                               nullptr, false, ICIS_NoInit);
+}
+
+bool FieldDecl::isAnonymousStructOrUnion() const {
+  if (!isImplicit() || getDeclName())
+    return false;
+
+  if (const auto *Record = getType()->getAs<RecordType>())
+    return Record->getDecl()->isAnonymousStructOrUnion();
+
+  return false;
+}
+
+Expr *FieldDecl::getInClassInitializer() const {
+  if (!hasInClassInitializer())
+    return nullptr;
+
+  LazyDeclStmtPtr InitPtr = BitField ? InitAndBitWidth->Init : Init;
+  return cast_if_present<Expr>(
+      InitPtr.isOffset() ? InitPtr.get(getASTContext().getExternalSource())
+                         : InitPtr.get(nullptr));
+}
+
+void FieldDecl::setInClassInitializer(Expr *NewInit) {
+  setLazyInClassInitializer(LazyDeclStmtPtr(NewInit));
+}
+
+void FieldDecl::setLazyInClassInitializer(LazyDeclStmtPtr NewInit) {
+  assert(hasInClassInitializer() && !getInClassInitializer());
+  if (BitField)
+    InitAndBitWidth->Init = NewInit;
+  else
+    Init = NewInit;
+}

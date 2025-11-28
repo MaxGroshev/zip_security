@@ -1,0 +1,50 @@
+    Eval->WasEvaluated = false;
+
+  return Eval->HasConstantInitialization;
+}
+
+bool VarDecl::isParameterPack() const {
+  return isa<PackExpansionType>(getType());
+}
+
+template<typename DeclT>
+static DeclT *getDefinitionOrSelf(DeclT *D) {
+  assert(D);
+  if (auto *Def = D->getDefinition())
+    return Def;
+  return D;
+}
+
+bool VarDecl::isEscapingByref() const {
+  return hasAttr<BlocksAttr>() && NonParmVarDeclBits.EscapingByref;
+}
+
+bool VarDecl::isNonEscapingByref() const {
+  return hasAttr<BlocksAttr>() && !NonParmVarDeclBits.EscapingByref;
+}
+
+bool VarDecl::hasDependentAlignment() const {
+  QualType T = getType();
+  return T->isDependentType() || T->isUndeducedType() ||
+         llvm::any_of(specific_attrs<AlignedAttr>(), [](const AlignedAttr *AA) {
+           return AA->isAlignmentDependent();
+         });
+}
+
+VarDecl *VarDecl::getTemplateInstantiationPattern() const {
+  const VarDecl *VD = this;
+
+  // If this is an instantiated member, walk back to the template from which
+  // it was instantiated.
+  if (MemberSpecializationInfo *MSInfo = VD->getMemberSpecializationInfo()) {
+    if (isTemplateInstantiation(MSInfo->getTemplateSpecializationKind())) {
+      VD = VD->getInstantiatedFromStaticDataMember();
+      while (auto *NewVD = VD->getInstantiatedFromStaticDataMember())
+        VD = NewVD;
+    }
+  }
+
+  // If it's an instantiated variable template specialization, find the
+  // template or partial specialization from which it was instantiated.
+  if (auto *VDTemplSpec = dyn_cast<VarTemplateSpecializationDecl>(VD)) {
+    if (isTemplateInstantiation(VDTemplSpec->getTemplateSpecializationKind())) {

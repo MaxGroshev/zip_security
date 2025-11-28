@@ -1,0 +1,50 @@
+    else if (CaseStmt *C = dyn_cast<CaseStmt>(Label)) {
+      OS << "case ";
+      if (const Expr *LHS = C->getLHS())
+        LHS->printPretty(OS, &Helper, PrintingPolicy(Helper.getLangOpts()));
+      if (const Expr *RHS = C->getRHS()) {
+        OS << " ... ";
+        RHS->printPretty(OS, &Helper, PrintingPolicy(Helper.getLangOpts()));
+      }
+    } else if (isa<DefaultStmt>(Label))
+      OS << "default";
+    else if (CXXCatchStmt *CS = dyn_cast<CXXCatchStmt>(Label)) {
+      OS << "catch (";
+      if (const VarDecl *ED = CS->getExceptionDecl())
+        ED->print(OS, PrintingPolicy(Helper.getLangOpts()), 0);
+      else
+        OS << "...";
+      OS << ")";
+    } else if (ObjCAtCatchStmt *CS = dyn_cast<ObjCAtCatchStmt>(Label)) {
+      OS << "@catch (";
+      if (const VarDecl *PD = CS->getCatchParamDecl())
+        PD->print(OS, PrintingPolicy(Helper.getLangOpts()), 0);
+      else
+        OS << "...";
+      OS << ")";
+    } else if (SEHExceptStmt *ES = dyn_cast<SEHExceptStmt>(Label)) {
+      OS << "__except (";
+      ES->getFilterExpr()->printPretty(OS, &Helper,
+                                       PrintingPolicy(Helper.getLangOpts()), 0);
+      OS << ")";
+    } else
+      llvm_unreachable("Invalid label statement in CFGBlock.");
+
+    OS << ":\n";
+  }
+
+  // Iterate through the statements in the block and print them.
+  unsigned j = 1;
+
+  for (CFGBlock::const_iterator I = B.begin(), E = B.end() ;
+       I != E ; ++I, ++j ) {
+    // Print the statement # in the basic block and the statement itself.
+    if (print_edges)
+      OS << " ";
+
+    OS << llvm::format("%3d", j) << ": ";
+
+    Helper.setStmtID(j);
+
+    print_elem(OS, Helper, *I);
+  }

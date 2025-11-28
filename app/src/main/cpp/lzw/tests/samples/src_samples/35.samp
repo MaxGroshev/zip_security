@@ -1,0 +1,50 @@
+        // may cause the same Expr to appear more than once in the CFG. Doing it
+        // here is safe because there's only one initializer per field.
+        autoCreateBlock();
+        appendStmt(Block, Default);
+        if (Stmt *Child = Default->getExpr())
+          if (CFGBlock *R = Visit(Child))
+            Block = R;
+        return Block;
+      }
+    }
+    return Visit(Init);
+  }
+
+  return Block;
+}
+
+/// Retrieve the type of the temporary object whose lifetime was
+/// extended by a local reference with the given initializer.
+static QualType getReferenceInitTemporaryType(const Expr *Init,
+                                              bool *FoundMTE = nullptr) {
+  while (true) {
+    // Skip parentheses.
+    Init = Init->IgnoreParens();
+
+    // Skip through cleanups.
+    if (const ExprWithCleanups *EWC = dyn_cast<ExprWithCleanups>(Init)) {
+      Init = EWC->getSubExpr();
+      continue;
+    }
+
+    // Skip through the temporary-materialization expression.
+    if (const MaterializeTemporaryExpr *MTE
+          = dyn_cast<MaterializeTemporaryExpr>(Init)) {
+      Init = MTE->getSubExpr();
+      if (FoundMTE)
+        *FoundMTE = true;
+      continue;
+    }
+
+    // Skip sub-object accesses into rvalues.
+    const Expr *SkippedInit = Init->skipRValueSubobjectAdjustments();
+    if (SkippedInit != Init) {
+      Init = SkippedInit;
+      continue;
+    }
+
+    break;
+  }
+
+  return Init->getType();

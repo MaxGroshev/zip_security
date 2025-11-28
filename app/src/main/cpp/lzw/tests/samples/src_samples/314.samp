@@ -1,0 +1,50 @@
+  // function that is both a function template specialization and a member
+  // specialization, we prefer the member specialization information. Eg:
+  //
+  // template<typename T> struct A {
+  //   template<typename U> void f() {}
+  //   template<> void f<int>() {}
+  // };
+  //
+  // Within the templated CXXRecordDecl, A<T>::f<int> is a dependent function
+  // template specialization; both getTemplateSpecializationKind() and
+  // getTemplateSpecializationKindForInstantiation() will return
+  // TSK_ExplicitSpecialization.
+  //
+  // For A<int>::f<int>():
+  // * getTemplateSpecializationKind() will return TSK_ExplicitSpecialization
+  // * getTemplateSpecializationKindForInstantiation() will return
+  //       TSK_ImplicitInstantiation
+  //
+  // This reflects the facts that A<int>::f<int> is an explicit specialization
+  // of A<int>::f, and that A<int>::f<int> should be implicitly instantiated
+  // from A::f<int> if a definition is needed.
+  if (FunctionTemplateSpecializationInfo *FTSInfo =
+          TemplateOrSpecialization
+              .dyn_cast<FunctionTemplateSpecializationInfo *>()) {
+    if (auto *MSInfo = FTSInfo->getMemberSpecializationInfo())
+      return MSInfo->getTemplateSpecializationKind();
+    return FTSInfo->getTemplateSpecializationKind();
+  }
+
+  if (MemberSpecializationInfo *MSInfo =
+          TemplateOrSpecialization.dyn_cast<MemberSpecializationInfo *>())
+    return MSInfo->getTemplateSpecializationKind();
+
+  if (TemplateOrSpecialization
+          .is<DependentFunctionTemplateSpecializationInfo *>() &&
+      getFriendObjectKind() == FOK_None)
+    return TSK_ExplicitSpecialization;
+
+  return TSK_Undeclared;
+}
+
+void
+FunctionDecl::setTemplateSpecializationKind(TemplateSpecializationKind TSK,
+                                          SourceLocation PointOfInstantiation) {
+  if (FunctionTemplateSpecializationInfo *FTSInfo
+        = TemplateOrSpecialization.dyn_cast<
+                                    FunctionTemplateSpecializationInfo*>()) {
+    FTSInfo->setTemplateSpecializationKind(TSK);
+    if (TSK != TSK_ExplicitSpecialization &&
+        PointOfInstantiation.isValid() &&

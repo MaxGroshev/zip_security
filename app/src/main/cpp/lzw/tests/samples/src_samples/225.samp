@@ -1,0 +1,50 @@
+    llvm::BCBlob            // map from ObjC context IDs to context information.
+    >;
+} // namespace objc_context_block
+
+namespace objc_property_block {
+enum {
+  OBJC_PROPERTY_DATA = 1,
+};
+
+using ObjCPropertyDataLayout = llvm::BCRecordLayout<
+    OBJC_PROPERTY_DATA, // record ID
+    llvm::BCVBR<16>,    // table offset within the blob (see below)
+    llvm::BCBlob        // map from ObjC (class name, property name) pairs to
+                        // ObjC property information
+    >;
+} // namespace objc_property_block
+
+namespace objc_method_block {
+enum {
+  OBJC_METHOD_DATA = 1,
+};
+
+using ObjCMethodDataLayout =
+    llvm::BCRecordLayout<OBJC_METHOD_DATA, // record ID
+                         llvm::BCVBR<16>,  // table offset within the blob (see
+                                           // below)
+                         llvm::BCBlob // map from ObjC (class names, selector,
+                                      // is-instance-method) tuples to ObjC
+                                      // method information
+                         >;
+} // namespace objc_method_block
+
+namespace objc_selector_block {
+enum {
+  OBJC_SELECTOR_DATA = 1,
+};
+
+using ObjCSelectorDataLayout =
+    llvm::BCRecordLayout<OBJC_SELECTOR_DATA, // record ID
+                         llvm::BCVBR<16>, // table offset within the blob (see
+                                          // below)
+                         llvm::BCBlob // map from (# pieces, identifier IDs) to
+                                      // Objective-C selector ID.
+                         >;
+} // namespace objc_selector_block
+
+namespace global_variable_block {
+enum { GLOBAL_VARIABLE_DATA = 1 };
+
+using GlobalVariableDataLayout = llvm::BCRecordLayout<

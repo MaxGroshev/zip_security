@@ -1,0 +1,50 @@
+  // FIXME: isParamDestroyedInCallee() should probably imply
+  // isDestructedType()
+  const auto *RT = getType()->getAs<RecordType>();
+  if (RT && RT->getDecl()->isParamDestroyedInCallee() &&
+      getType().isDestructedType())
+    return true;
+
+  return false;
+}
+
+Expr *ParmVarDecl::getDefaultArg() {
+  assert(!hasUnparsedDefaultArg() && "Default argument is not yet parsed!");
+  assert(!hasUninstantiatedDefaultArg() &&
+         "Default argument is not yet instantiated!");
+
+  Expr *Arg = getInit();
+  if (auto *E = dyn_cast_if_present<FullExpr>(Arg))
+    return E->getSubExpr();
+
+  return Arg;
+}
+
+void ParmVarDecl::setDefaultArg(Expr *defarg) {
+  ParmVarDeclBits.DefaultArgKind = DAK_Normal;
+  Init = defarg;
+}
+
+SourceRange ParmVarDecl::getDefaultArgRange() const {
+  switch (ParmVarDeclBits.DefaultArgKind) {
+  case DAK_None:
+  case DAK_Unparsed:
+    // Nothing we can do here.
+    return SourceRange();
+
+  case DAK_Uninstantiated:
+    return getUninstantiatedDefaultArg()->getSourceRange();
+
+  case DAK_Normal:
+    if (const Expr *E = getInit())
+      return E->getSourceRange();
+
+    // Missing an actual expression, may be invalid.
+    return SourceRange();
+  }
+  llvm_unreachable("Invalid default argument kind.");
+}
+
+void ParmVarDecl::setUninstantiatedDefaultArg(Expr *arg) {
+  ParmVarDeclBits.DefaultArgKind = DAK_Uninstantiated;
+  Init = arg;

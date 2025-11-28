@@ -1,0 +1,50 @@
+  const auto *FPT = getType()->getAs<FunctionProtoType>();
+  return FPT ? FPT->getNumParams() : 0;
+}
+
+void FunctionDecl::setParams(ASTContext &C,
+                             ArrayRef<ParmVarDecl *> NewParamInfo) {
+  assert(!ParamInfo && "Already has param info!");
+  assert(NewParamInfo.size() == getNumParams() && "Parameter count mismatch!");
+
+  // Zero params -> null pointer.
+  if (!NewParamInfo.empty()) {
+    ParamInfo = new (C) ParmVarDecl*[NewParamInfo.size()];
+    std::copy(NewParamInfo.begin(), NewParamInfo.end(), ParamInfo);
+  }
+}
+
+/// getMinRequiredArguments - Returns the minimum number of arguments
+/// needed to call this function. This may be fewer than the number of
+/// function parameters, if some of the parameters have default
+/// arguments (in C++) or are parameter packs (C++11).
+unsigned FunctionDecl::getMinRequiredArguments() const {
+  if (!getASTContext().getLangOpts().CPlusPlus)
+    return getNumParams();
+
+  // Note that it is possible for a parameter with no default argument to
+  // follow a parameter with a default argument.
+  unsigned NumRequiredArgs = 0;
+  unsigned MinParamsSoFar = 0;
+  for (auto *Param : parameters()) {
+    if (!Param->isParameterPack()) {
+      ++MinParamsSoFar;
+      if (!Param->hasDefaultArg())
+        NumRequiredArgs = MinParamsSoFar;
+    }
+  }
+  return NumRequiredArgs;
+}
+
+bool FunctionDecl::hasCXXExplicitFunctionObjectParameter() const {
+  return getNumParams() != 0 && getParamDecl(0)->isExplicitObjectParameter();
+}
+
+unsigned FunctionDecl::getNumNonObjectParams() const {
+  return getNumParams() -
+         static_cast<unsigned>(hasCXXExplicitFunctionObjectParameter());
+}
+
+unsigned FunctionDecl::getMinRequiredExplicitArguments() const {
+  return getMinRequiredArguments() -
+         static_cast<unsigned>(hasCXXExplicitFunctionObjectParameter());

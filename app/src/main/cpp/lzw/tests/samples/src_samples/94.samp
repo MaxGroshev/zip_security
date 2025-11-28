@@ -1,0 +1,50 @@
+    LoopSuccessor = Succ;
+
+  // Save the current value for the break targets.
+  // All breaks should go to the code following the loop.
+  SaveAndRestore save_break(BreakJumpTarget);
+  BreakJumpTarget = JumpTarget(LoopSuccessor, ScopePos);
+
+  // The block for the __begin != __end expression.
+  CFGBlock *ConditionBlock = createBlock(false);
+  ConditionBlock->setTerminator(S);
+
+  // Now add the actual condition to the condition block.
+  if (Expr *C = S->getCond()) {
+    Block = ConditionBlock;
+    CFGBlock *BeginConditionBlock = addStmt(C);
+    if (badCFG)
+      return nullptr;
+    assert(BeginConditionBlock == ConditionBlock &&
+           "condition block in for-range was unexpectedly complex");
+    (void)BeginConditionBlock;
+  }
+
+  // The condition block is the implicit successor for the loop body as well as
+  // any code above the loop.
+  Succ = ConditionBlock;
+
+  // See if this is a known constant.
+  TryResult KnownVal(true);
+
+  if (S->getCond())
+    KnownVal = tryEvaluateBool(S->getCond());
+
+  // Now create the loop body.
+  {
+    assert(S->getBody());
+
+    // Save the current values for Block, Succ, and continue targets.
+    SaveAndRestore save_Block(Block), save_Succ(Succ);
+    SaveAndRestore save_continue(ContinueJumpTarget);
+
+    // Generate increment code in its own basic block.  This is the target of
+    // continue statements.
+    Block = nullptr;
+    Succ = addStmt(S->getInc());
+    if (badCFG)
+      return nullptr;
+    ContinueJumpTarget = JumpTarget(Succ, ContinueScopePos);
+
+    // The starting block for the loop increment is the block that should
+    // represent the 'loop target' for looping back to the start of the loop.

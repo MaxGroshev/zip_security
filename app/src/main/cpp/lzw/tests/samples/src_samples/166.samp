@@ -1,0 +1,50 @@
+  //      \- g()
+  // We want f to be a child of the opening parenthesis and g to be a child
+  // of the comma token in the macro call.
+  // Thus, we map
+  // { -> (
+  // and add
+  // ( -> ,
+  // once we're past the comma in the reconstruction.
+  llvm::DenseMap<FormatToken *, FormatToken *>
+      SpelledParentToReconstructedParent;
+
+  // Keeps track of a single expansion while we're reconstructing tokens it
+  // generated.
+  struct Expansion {
+    // The identifier token of the macro call.
+    FormatToken *ID;
+    // Our current position in the reconstruction.
+    std::list<UnwrappedLineNode>::iterator SpelledI;
+    // The end of the reconstructed token sequence.
+    std::list<UnwrappedLineNode>::iterator SpelledE;
+  };
+
+  // Stack of macro calls for which we're in the middle of an expansion.
+  llvm::SmallVector<Expansion> ActiveExpansions;
+
+  struct MacroCallState {
+    MacroCallState(ReconstructedLine *Line, FormatToken *ParentLastToken,
+                   FormatToken *MacroCallLParen);
+
+    ReconstructedLine *Line;
+
+    // The last token in the parent line or expansion, or nullptr if the macro
+    // expansion is on a top-level line.
+    //
+    // For example, in the macro call:
+    //   auto f = []() { ID(1); };
+    // The MacroCallState for ID will have '{' as ParentLastToken.
+    //
+    // In the macro call:
+    //   ID(ID(void f()));
+    // The MacroCallState of the outer ID will have nullptr as ParentLastToken,
+    // while the MacroCallState for the inner ID will have the '(' of the outer
+    // ID as ParentLastToken.
+    //
+    // In the macro call:
+    //   ID2(a, ID(b));
+    // The MacroCallState of ID will have ',' as ParentLastToken.
+    FormatToken *ParentLastToken;
+
+    // The l_paren of this MacroCallState's macro call.

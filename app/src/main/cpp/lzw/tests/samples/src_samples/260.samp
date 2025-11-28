@@ -1,0 +1,50 @@
+  //   the linkage of the previous declaration. If there is more than
+  //   one such matching entity, the program is ill-formed. Otherwise,
+  //   if no matching entity is found, the block scope entity receives
+  //   external linkage.
+  if (D->getDeclContext()->isFunctionOrMethod())
+    return getLVForLocalDecl(D, computation);
+
+  // C++ [basic.link]p6:
+  //   Names not covered by these rules have no linkage.
+  return LinkageInfo::none();
+}
+
+/// getLVForDecl - Get the linkage and visibility for the given declaration.
+LinkageInfo LinkageComputer::getLVForDecl(const NamedDecl *D,
+                                          LVComputationKind computation) {
+  // Internal_linkage attribute overrides other considerations.
+  if (D->hasAttr<InternalLinkageAttr>())
+    return LinkageInfo::internal();
+
+  if (computation.IgnoreAllVisibility && D->hasCachedLinkage())
+    return LinkageInfo(D->getCachedLinkage(), DefaultVisibility, false);
+
+  if (std::optional<LinkageInfo> LI = lookup(D, computation))
+    return *LI;
+
+  LinkageInfo LV = computeLVForDecl(D, computation);
+  if (D->hasCachedLinkage())
+    assert(D->getCachedLinkage() == LV.getLinkage());
+
+  D->setCachedLinkage(LV.getLinkage());
+  cache(D, computation, LV);
+
+#ifndef NDEBUG
+  // In C (because of gnu inline) and in c++ with microsoft extensions an
+  // static can follow an extern, so we can have two decls with different
+  // linkages.
+  const LangOptions &Opts = D->getASTContext().getLangOpts();
+  if (!Opts.CPlusPlus || Opts.MicrosoftExt)
+    return LV;
+
+  // We have just computed the linkage for this decl. By induction we know
+  // that all other computed linkages match, check that the one we just
+  // computed also does.
+  NamedDecl *Old = nullptr;
+  for (auto *I : D->redecls()) {
+    auto *T = cast<NamedDecl>(I);
+    if (T == D)
+      continue;
+    if (!T->isInvalidDecl() && T->hasCachedLinkage()) {
+      Old = T;

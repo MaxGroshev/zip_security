@@ -1,0 +1,50 @@
+}
+
+void TypeDecl::anchor() {}
+
+TypedefDecl *TypedefDecl::Create(ASTContext &C, DeclContext *DC,
+                                 SourceLocation StartLoc, SourceLocation IdLoc,
+                                 IdentifierInfo *Id, TypeSourceInfo *TInfo) {
+  return new (C, DC) TypedefDecl(C, DC, StartLoc, IdLoc, Id, TInfo);
+}
+
+void TypedefNameDecl::anchor() {}
+
+TagDecl *TypedefNameDecl::getAnonDeclWithTypedefName(bool AnyRedecl) const {
+  if (auto *TT = getTypeSourceInfo()->getType()->getAs<TagType>()) {
+    auto *OwningTypedef = TT->getDecl()->getTypedefNameForAnonDecl();
+    auto *ThisTypedef = this;
+    if (AnyRedecl && OwningTypedef) {
+      OwningTypedef = OwningTypedef->getCanonicalDecl();
+      ThisTypedef = ThisTypedef->getCanonicalDecl();
+    }
+    if (OwningTypedef == ThisTypedef)
+      return TT->getDecl();
+  }
+
+  return nullptr;
+}
+
+bool TypedefNameDecl::isTransparentTagSlow() const {
+  auto determineIsTransparent = [&]() {
+    if (auto *TT = getUnderlyingType()->getAs<TagType>()) {
+      if (auto *TD = TT->getDecl()) {
+        if (TD->getName() != getName())
+          return false;
+        SourceLocation TTLoc = getLocation();
+        SourceLocation TDLoc = TD->getLocation();
+        if (!TTLoc.isMacroID() || !TDLoc.isMacroID())
+          return false;
+        SourceManager &SM = getASTContext().getSourceManager();
+        return SM.getSpellingLoc(TTLoc) == SM.getSpellingLoc(TDLoc);
+      }
+    }
+    return false;
+  };
+
+  bool isTransparent = determineIsTransparent();
+  MaybeModedTInfo.setInt((isTransparent << 1) | 1);
+  return isTransparent;
+}
+
+TypedefDecl *TypedefDecl::CreateDeserialized(ASTContext &C, unsigned ID) {

@@ -1,0 +1,50 @@
+  CFGBlock *VisitLogicalOperator(BinaryOperator *B);
+  std::pair<CFGBlock *, CFGBlock *> VisitLogicalOperator(BinaryOperator *B,
+                                                         Stmt *Term,
+                                                         CFGBlock *TrueBlock,
+                                                         CFGBlock *FalseBlock);
+  CFGBlock *VisitMaterializeTemporaryExpr(MaterializeTemporaryExpr *MTE,
+                                          AddStmtChoice asc);
+  CFGBlock *VisitMemberExpr(MemberExpr *M, AddStmtChoice asc);
+  CFGBlock *VisitObjCAtCatchStmt(ObjCAtCatchStmt *S);
+  CFGBlock *VisitObjCAtSynchronizedStmt(ObjCAtSynchronizedStmt *S);
+  CFGBlock *VisitObjCAtThrowStmt(ObjCAtThrowStmt *S);
+  CFGBlock *VisitObjCAtTryStmt(ObjCAtTryStmt *S);
+  CFGBlock *VisitObjCAutoreleasePoolStmt(ObjCAutoreleasePoolStmt *S);
+  CFGBlock *VisitObjCForCollectionStmt(ObjCForCollectionStmt *S);
+  CFGBlock *VisitObjCMessageExpr(ObjCMessageExpr *E, AddStmtChoice asc);
+  CFGBlock *VisitPseudoObjectExpr(PseudoObjectExpr *E);
+  CFGBlock *VisitReturnStmt(Stmt *S);
+  CFGBlock *VisitCoroutineSuspendExpr(CoroutineSuspendExpr *S,
+                                      AddStmtChoice asc);
+  CFGBlock *VisitSEHExceptStmt(SEHExceptStmt *S);
+  CFGBlock *VisitSEHFinallyStmt(SEHFinallyStmt *S);
+  CFGBlock *VisitSEHLeaveStmt(SEHLeaveStmt *S);
+  CFGBlock *VisitSEHTryStmt(SEHTryStmt *S);
+  CFGBlock *VisitStmtExpr(StmtExpr *S, AddStmtChoice asc);
+  CFGBlock *VisitSwitchStmt(SwitchStmt *S);
+  CFGBlock *VisitUnaryExprOrTypeTraitExpr(UnaryExprOrTypeTraitExpr *E,
+                                          AddStmtChoice asc);
+  CFGBlock *VisitUnaryOperator(UnaryOperator *U, AddStmtChoice asc);
+  CFGBlock *VisitWhileStmt(WhileStmt *W);
+  CFGBlock *VisitArrayInitLoopExpr(ArrayInitLoopExpr *A, AddStmtChoice asc);
+
+  CFGBlock *Visit(Stmt *S, AddStmtChoice asc = AddStmtChoice::NotAlwaysAdd,
+                  bool ExternallyDestructed = false);
+  CFGBlock *VisitStmt(Stmt *S, AddStmtChoice asc);
+  CFGBlock *VisitChildren(Stmt *S);
+  CFGBlock *VisitNoRecurse(Expr *E, AddStmtChoice asc);
+  CFGBlock *VisitOMPExecutableDirective(OMPExecutableDirective *D,
+                                        AddStmtChoice asc);
+
+  void maybeAddScopeBeginForVarDecl(CFGBlock *B, const VarDecl *VD,
+                                    const Stmt *S) {
+    if (ScopePos && (VD == ScopePos.getFirstVarInScope()))
+      appendScopeBegin(B, VD, S);
+  }
+
+  /// When creating the CFG for temporary destructors, we want to mirror the
+  /// branch structure of the corresponding constructor calls.
+  /// Thus, while visiting a statement for temporary destructors, we keep a
+  /// context to keep track of the following information:
+  /// - whether a subexpression is executed unconditionally

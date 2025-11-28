@@ -1,0 +1,50 @@
+
+  BLOCK(OBJC_METHOD_BLOCK);
+  BLOCK_RECORD(objc_method_block, OBJC_METHOD_DATA);
+
+  BLOCK(OBJC_SELECTOR_BLOCK);
+  BLOCK_RECORD(objc_selector_block, OBJC_SELECTOR_DATA);
+
+  BLOCK(GLOBAL_VARIABLE_BLOCK);
+  BLOCK_RECORD(global_variable_block, GLOBAL_VARIABLE_DATA);
+
+  BLOCK(GLOBAL_FUNCTION_BLOCK);
+  BLOCK_RECORD(global_function_block, GLOBAL_FUNCTION_DATA);
+#undef BLOCK_RECORD
+#undef BLOCK
+}
+
+void APINotesWriter::Implementation::writeControlBlock(
+    llvm::BitstreamWriter &Stream) {
+  llvm::BCBlockRAII Scope(Stream, CONTROL_BLOCK_ID, 3);
+
+  control_block::MetadataLayout Metadata(Stream);
+  Metadata.emit(Scratch, VERSION_MAJOR, VERSION_MINOR);
+
+  control_block::ModuleNameLayout ModuleName(Stream);
+  ModuleName.emit(Scratch, this->ModuleName);
+
+  if (SourceFile) {
+    control_block::SourceFileLayout SourceFile(Stream);
+    SourceFile.emit(Scratch, this->SourceFile->getSize(),
+                    this->SourceFile->getModificationTime());
+  }
+}
+
+namespace {
+/// Used to serialize the on-disk identifier table.
+class IdentifierTableInfo {
+public:
+  using key_type = StringRef;
+  using key_type_ref = key_type;
+  using data_type = IdentifierID;
+  using data_type_ref = const data_type &;
+  using hash_value_type = uint32_t;
+  using offset_type = unsigned;
+
+  hash_value_type ComputeHash(key_type_ref Key) { return llvm::djbHash(Key); }
+
+  std::pair<unsigned, unsigned>
+  EmitKeyDataLength(raw_ostream &OS, key_type_ref Key, data_type_ref) {
+    uint32_t KeyLength = Key.size();
+    uint32_t DataLength = sizeof(uint32_t);

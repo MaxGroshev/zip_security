@@ -1,0 +1,50 @@
+  if (TryTerminatedBlock)
+    // The current try statement is the only successor.
+    addSuccessor(Block, TryTerminatedBlock);
+  else
+    // otherwise the Exit block is the only successor.
+    addSuccessor(Block, &cfg->getExit());
+
+  // Add the statement to the block.  This may create new blocks if S contains
+  // control-flow (short-circuit operations).
+  return VisitStmt(S, AddStmtChoice::AlwaysAdd);
+}
+
+CFGBlock *CFGBuilder::VisitObjCAtTryStmt(ObjCAtTryStmt *Terminator) {
+  // "@try"/"@catch" is a control-flow statement.  Thus we stop processing the
+  // current block.
+  CFGBlock *TrySuccessor = nullptr;
+
+  if (Block) {
+    if (badCFG)
+      return nullptr;
+    TrySuccessor = Block;
+  } else
+    TrySuccessor = Succ;
+
+  // FIXME: Implement @finally support.
+  if (Terminator->getFinallyStmt())
+    return NYS();
+
+  CFGBlock *PrevTryTerminatedBlock = TryTerminatedBlock;
+
+  // Create a new block that will contain the try statement.
+  CFGBlock *NewTryTerminatedBlock = createBlock(false);
+  // Add the terminator in the try block.
+  NewTryTerminatedBlock->setTerminator(Terminator);
+
+  bool HasCatchAll = false;
+  for (ObjCAtCatchStmt *CS : Terminator->catch_stmts()) {
+    // The code after the try is the implicit successor.
+    Succ = TrySuccessor;
+    if (CS->hasEllipsis()) {
+      HasCatchAll = true;
+    }
+    Block = nullptr;
+    CFGBlock *CatchBlock = VisitObjCAtCatchStmt(CS);
+    if (!CatchBlock)
+      return nullptr;
+    // Add this block to the list of successors for the block with the try
+    // statement.
+    addSuccessor(NewTryTerminatedBlock, CatchBlock);
+  }

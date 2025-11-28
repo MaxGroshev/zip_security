@@ -1,0 +1,50 @@
+  void writeBlockInfoBlock(llvm::BitstreamWriter &Stream);
+  void writeControlBlock(llvm::BitstreamWriter &Stream);
+  void writeIdentifierBlock(llvm::BitstreamWriter &Stream);
+  void writeObjCContextBlock(llvm::BitstreamWriter &Stream);
+  void writeObjCPropertyBlock(llvm::BitstreamWriter &Stream);
+  void writeObjCMethodBlock(llvm::BitstreamWriter &Stream);
+  void writeObjCSelectorBlock(llvm::BitstreamWriter &Stream);
+  void writeGlobalVariableBlock(llvm::BitstreamWriter &Stream);
+  void writeGlobalFunctionBlock(llvm::BitstreamWriter &Stream);
+  void writeEnumConstantBlock(llvm::BitstreamWriter &Stream);
+  void writeTagBlock(llvm::BitstreamWriter &Stream);
+  void writeTypedefBlock(llvm::BitstreamWriter &Stream);
+
+public:
+  Implementation(llvm::StringRef ModuleName, const FileEntry *SF)
+      : ModuleName(std::string(ModuleName)), SourceFile(SF) {}
+
+  void writeToStream(llvm::raw_ostream &OS);
+};
+
+void APINotesWriter::Implementation::writeToStream(llvm::raw_ostream &OS) {
+  llvm::SmallVector<char, 0> Buffer;
+
+  {
+    llvm::BitstreamWriter Stream(Buffer);
+
+    // Emit the signature.
+    for (unsigned char Byte : API_NOTES_SIGNATURE)
+      Stream.Emit(Byte, 8);
+
+    // Emit the blocks.
+    writeBlockInfoBlock(Stream);
+    writeControlBlock(Stream);
+    writeIdentifierBlock(Stream);
+    writeObjCContextBlock(Stream);
+    writeObjCPropertyBlock(Stream);
+    writeObjCMethodBlock(Stream);
+    writeObjCSelectorBlock(Stream);
+    writeGlobalVariableBlock(Stream);
+    writeGlobalFunctionBlock(Stream);
+    writeEnumConstantBlock(Stream);
+    writeTagBlock(Stream);
+    writeTypedefBlock(Stream);
+  }
+
+  OS.write(Buffer.data(), Buffer.size());
+  OS.flush();
+}
+
+namespace {

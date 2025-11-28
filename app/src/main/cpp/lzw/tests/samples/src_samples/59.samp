@@ -1,0 +1,50 @@
+    CFGBlock *LastBlock = Block;
+    for (const VariableArrayType *VA = FindVA(T); VA != nullptr;
+         VA = FindVA(VA->getElementType().getTypePtr())) {
+      if (CFGBlock *NewBlock = addStmt(VA->getSizeExpr()))
+        LastBlock = NewBlock;
+    }
+    return LastBlock;
+  }
+
+  VarDecl *VD = dyn_cast<VarDecl>(DS->getSingleDecl());
+
+  if (!VD) {
+    // Of everything that can be declared in a DeclStmt, only VarDecls and the
+    // exceptions above impact runtime semantics.
+    return Block;
+  }
+
+  bool HasTemporaries = false;
+
+  // Guard static initializers under a branch.
+  CFGBlock *blockAfterStaticInit = nullptr;
+
+  if (BuildOpts.AddStaticInitBranches && VD->isStaticLocal()) {
+    // For static variables, we need to create a branch to track
+    // whether or not they are initialized.
+    if (Block) {
+      Succ = Block;
+      Block = nullptr;
+      if (badCFG)
+        return nullptr;
+    }
+    blockAfterStaticInit = Succ;
+  }
+
+  // Destructors of temporaries in initialization expression should be called
+  // after initialization finishes.
+  Expr *Init = VD->getInit();
+  if (Init) {
+    HasTemporaries = isa<ExprWithCleanups>(Init);
+
+    if (BuildOpts.AddTemporaryDtors && HasTemporaries) {
+      // Generate destructors for temporaries in initialization expression.
+      TempDtorContext Context;
+      VisitForTemporaryDtors(cast<ExprWithCleanups>(Init)->getSubExpr(),
+                             /*ExternallyDestructed=*/true, Context);
+    }
+  }
+
+  // If we bind to a tuple-like type, we iterate over the HoldingVars, and
+  // create a DeclStmt for each of them.

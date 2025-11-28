@@ -1,0 +1,50 @@
+void emitVariableInfo(raw_ostream &OS, const VariableInfo &VI) {
+  emitCommonEntityInfo(OS, VI);
+
+  uint8_t bytes[2] = {0, 0};
+  if (auto nullable = VI.getNullability()) {
+    bytes[0] = 1;
+    bytes[1] = static_cast<uint8_t>(*nullable);
+  } else {
+    // Nothing to do.
+  }
+
+  OS.write(reinterpret_cast<const char *>(bytes), 2);
+
+  llvm::support::endian::Writer writer(OS, llvm::endianness::little);
+  writer.write<uint16_t>(VI.getType().size());
+  OS.write(VI.getType().data(), VI.getType().size());
+}
+
+/// Used to serialize the on-disk Objective-C property table.
+class ObjCPropertyTableInfo
+    : public VersionedTableInfo<ObjCPropertyTableInfo,
+                                std::tuple<unsigned, unsigned, char>,
+                                ObjCPropertyInfo> {
+public:
+  unsigned getKeyLength(key_type_ref) {
+    return sizeof(uint32_t) + sizeof(uint32_t) + sizeof(uint8_t);
+  }
+
+  void EmitKey(raw_ostream &OS, key_type_ref Key, unsigned) {
+    llvm::support::endian::Writer writer(OS, llvm::endianness::little);
+    writer.write<uint32_t>(std::get<0>(Key));
+    writer.write<uint32_t>(std::get<1>(Key));
+    writer.write<uint8_t>(std::get<2>(Key));
+  }
+
+  hash_value_type ComputeHash(key_type_ref Key) {
+    return static_cast<size_t>(llvm::hash_value(Key));
+  }
+
+  unsigned getUnversionedInfoSize(const ObjCPropertyInfo &OPI) {
+    return getVariableInfoSize(OPI) + 1;
+  }
+
+  void emitUnversionedInfo(raw_ostream &OS, const ObjCPropertyInfo &OPI) {
+    emitVariableInfo(OS, OPI);
+
+    uint8_t flags = 0;
+    if (auto value = OPI.getSwiftImportAsAccessors()) {
+      flags |= 1 << 0;
+      flags |= value.value() << 1;

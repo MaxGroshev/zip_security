@@ -1,0 +1,50 @@
+
+VarDecl::DefinitionKind
+VarDecl::isThisDeclarationADefinition(ASTContext &C) const {
+  if (isThisDeclarationADemotedDefinition())
+    return DeclarationOnly;
+
+  // C++ [basic.def]p2:
+  //   A declaration is a definition unless [...] it contains the 'extern'
+  //   specifier or a linkage-specification and neither an initializer [...],
+  //   it declares a non-inline static data member in a class declaration [...],
+  //   it declares a static data member outside a class definition and the variable
+  //   was defined within the class with the constexpr specifier [...],
+  // C++1y [temp.expl.spec]p15:
+  //   An explicit specialization of a static data member or an explicit
+  //   specialization of a static data member template is a definition if the
+  //   declaration includes an initializer; otherwise, it is a declaration.
+  //
+  // FIXME: How do you declare (but not define) a partial specialization of
+  // a static data member template outside the containing class?
+  if (isStaticDataMember()) {
+    if (isOutOfLine() &&
+        !(getCanonicalDecl()->isInline() &&
+          getCanonicalDecl()->isConstexpr()) &&
+        (hasInit() ||
+         // If the first declaration is out-of-line, this may be an
+         // instantiation of an out-of-line partial specialization of a variable
+         // template for which we have not yet instantiated the initializer.
+         (getFirstDecl()->isOutOfLine()
+              ? getTemplateSpecializationKind() == TSK_Undeclared
+              : getTemplateSpecializationKind() !=
+                    TSK_ExplicitSpecialization) ||
+         isa<VarTemplatePartialSpecializationDecl>(this)))
+      return Definition;
+    if (!isOutOfLine() && isInline())
+      return Definition;
+    return DeclarationOnly;
+  }
+  // C99 6.7p5:
+  //   A definition of an identifier is a declaration for that identifier that
+  //   [...] causes storage to be reserved for that object.
+  // Note: that applies for all non-file-scope objects.
+  // C99 6.9.2p1:
+  //   If the declaration of an identifier for an object has file scope and an
+  //   initializer, the declaration is an external definition for the identifier
+  if (hasInit())
+    return Definition;
+
+  if (hasDefiningAttr())
+    return Definition;
+

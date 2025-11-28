@@ -1,0 +1,50 @@
+    OS << "\"";
+    OS.write_escaped(LinkLibraries[I].Library);
+    OS << "\"";
+  }
+
+  for (unsigned I = 0, N = UnresolvedConflicts.size(); I != N; ++I) {
+    OS.indent(Indent + 2);
+    OS << "conflict ";
+    printModuleId(OS, UnresolvedConflicts[I].Id);
+    OS << ", \"";
+    OS.write_escaped(UnresolvedConflicts[I].Message);
+    OS << "\"\n";
+  }
+
+  for (unsigned I = 0, N = Conflicts.size(); I != N; ++I) {
+    OS.indent(Indent + 2);
+    OS << "conflict ";
+    OS << Conflicts[I].Other->getFullModuleName(true);
+    OS << ", \"";
+    OS.write_escaped(Conflicts[I].Message);
+    OS << "\"\n";
+  }
+
+  if (InferSubmodules) {
+    OS.indent(Indent + 2);
+    if (InferExplicitSubmodules)
+      OS << "explicit ";
+    OS << "module * {\n";
+    if (InferExportWildcard) {
+      OS.indent(Indent + 4);
+      OS << "export *\n";
+    }
+    OS.indent(Indent + 2);
+    OS << "}\n";
+  }
+
+  OS.indent(Indent);
+  OS << "}\n";
+}
+
+LLVM_DUMP_METHOD void Module::dump() const {
+  print(llvm::errs(), 0, true);
+}
+
+void VisibleModuleSet::setVisible(Module *M, SourceLocation Loc,
+                                  VisibleCallback Vis, ConflictCallback Cb) {
+  // We can't import a global module fragment so the location can be invalid.
+  assert((M->isGlobalModule() || Loc.isValid()) &&
+         "setVisible expects a valid import location");
+  if (isVisible(M))

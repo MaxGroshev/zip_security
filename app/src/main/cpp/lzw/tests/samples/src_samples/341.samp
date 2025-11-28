@@ -1,0 +1,50 @@
+  //     }
+  // }
+  // compiler should treat it as
+  // cbuffer A {
+  // }
+  // cbuffer B {
+  // }
+  // FIXME: support nested buffers if required for back-compat.
+  DeclContext *DC = LexicalParent;
+  HLSLBufferDecl *Result =
+      new (C, DC) HLSLBufferDecl(DC, CBuffer, KwLoc, ID, IDLoc, LBrace);
+  return Result;
+}
+
+HLSLBufferDecl *HLSLBufferDecl::CreateDeserialized(ASTContext &C, unsigned ID) {
+  return new (C, ID) HLSLBufferDecl(nullptr, false, SourceLocation(), nullptr,
+                                    SourceLocation(), SourceLocation());
+}
+
+//===----------------------------------------------------------------------===//
+// ImportDecl Implementation
+//===----------------------------------------------------------------------===//
+
+/// Retrieve the number of module identifiers needed to name the given
+/// module.
+static unsigned getNumModuleIdentifiers(Module *Mod) {
+  unsigned Result = 1;
+  while (Mod->Parent) {
+    Mod = Mod->Parent;
+    ++Result;
+  }
+  return Result;
+}
+
+ImportDecl::ImportDecl(DeclContext *DC, SourceLocation StartLoc,
+                       Module *Imported,
+                       ArrayRef<SourceLocation> IdentifierLocs)
+    : Decl(Import, DC, StartLoc), ImportedModule(Imported),
+      NextLocalImportAndComplete(nullptr, true) {
+  assert(getNumModuleIdentifiers(Imported) == IdentifierLocs.size());
+  auto *StoredLocs = getTrailingObjects<SourceLocation>();
+  std::uninitialized_copy(IdentifierLocs.begin(), IdentifierLocs.end(),
+                          StoredLocs);
+}
+
+ImportDecl::ImportDecl(DeclContext *DC, SourceLocation StartLoc,
+                       Module *Imported, SourceLocation EndLoc)
+    : Decl(Import, DC, StartLoc), ImportedModule(Imported),
+      NextLocalImportAndComplete(nullptr, false) {
+  *getTrailingObjects<SourceLocation>() = EndLoc;

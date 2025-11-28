@@ -1,0 +1,50 @@
+  StringRef Name;
+  AvailabilityItem Availability;
+  StringRef SwiftName;
+  std::optional<bool> SwiftPrivate;
+  std::optional<StringRef> SwiftBridge;
+  std::optional<StringRef> NSErrorDomain;
+  std::optional<SwiftNewTypeKind> SwiftType;
+};
+
+typedef std::vector<Typedef> TypedefsSeq;
+} // namespace
+
+LLVM_YAML_IS_SEQUENCE_VECTOR(Typedef)
+
+namespace llvm {
+namespace yaml {
+template <> struct ScalarEnumerationTraits<SwiftNewTypeKind> {
+  static void enumeration(IO &IO, SwiftNewTypeKind &SWK) {
+    IO.enumCase(SWK, "none", SwiftNewTypeKind::None);
+    IO.enumCase(SWK, "struct", SwiftNewTypeKind::Struct);
+    IO.enumCase(SWK, "enum", SwiftNewTypeKind::Enum);
+  }
+};
+
+template <> struct MappingTraits<Typedef> {
+  static void mapping(IO &IO, Typedef &T) {
+    IO.mapRequired("Name", T.Name);
+    IO.mapOptional("Availability", T.Availability.Mode,
+                   APIAvailability::Available);
+    IO.mapOptional("AvailabilityMsg", T.Availability.Msg, StringRef(""));
+    IO.mapOptional("SwiftPrivate", T.SwiftPrivate);
+    IO.mapOptional("SwiftName", T.SwiftName, StringRef(""));
+    IO.mapOptional("SwiftBridge", T.SwiftBridge);
+    IO.mapOptional("NSErrorDomain", T.NSErrorDomain);
+    IO.mapOptional("SwiftWrapper", T.SwiftType);
+  }
+};
+} // namespace yaml
+} // namespace llvm
+
+namespace {
+struct Namespace;
+typedef std::vector<Namespace> NamespacesSeq;
+
+struct TopLevelItems {
+  ClassesSeq Classes;
+  ClassesSeq Protocols;
+  FunctionsSeq Functions;
+  GlobalVariablesSeq Globals;
+  EnumConstantsSeq EnumConstants;

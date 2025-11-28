@@ -1,0 +1,50 @@
+  }
+
+  struct {
+    StringRef Prefix;
+    HeaderKind Kind;
+  } Kinds[] = {{"", HK_Normal},
+               {"textual ", HK_Textual},
+               {"private ", HK_Private},
+               {"private textual ", HK_PrivateTextual},
+               {"exclude ", HK_Excluded}};
+
+  for (auto &K : Kinds) {
+    assert(&K == &Kinds[K.Kind] && "kinds in wrong order");
+    for (auto &H : Headers[K.Kind]) {
+      OS.indent(Indent + 2);
+      OS << K.Prefix << "header \"";
+      OS.write_escaped(H.NameAsWritten);
+      OS << "\" { size " << H.Entry.getSize()
+         << " mtime " << H.Entry.getModificationTime() << " }\n";
+    }
+  }
+  for (auto *Unresolved : {&UnresolvedHeaders, &MissingHeaders}) {
+    for (auto &U : *Unresolved) {
+      OS.indent(Indent + 2);
+      OS << Kinds[U.Kind].Prefix << "header \"";
+      OS.write_escaped(U.FileName);
+      OS << "\"";
+      if (U.Size || U.ModTime) {
+        OS << " {";
+        if (U.Size)
+          OS << " size " << *U.Size;
+        if (U.ModTime)
+          OS << " mtime " << *U.ModTime;
+        OS << " }";
+      }
+      OS << "\n";
+    }
+  }
+
+  if (!ExportAsModule.empty()) {
+    OS.indent(Indent + 2);
+    OS << "export_as" << ExportAsModule << "\n";
+  }
+
+  for (auto *Submodule : submodules())
+    // Print inferred subframework modules so that we don't need to re-infer
+    // them (requires expensive directory iteration + stat calls) when we build
+    // the module. Regular inferred submodules are OK, as we need to look at all
+    // those header files anyway.
+    if (!Submodule->IsInferred || Submodule->IsFramework)

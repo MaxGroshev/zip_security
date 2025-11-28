@@ -1,0 +1,50 @@
+  default:
+    break;
+  }
+}
+
+void CFGBuilder::cleanupConstructionContext(Expr *E) {
+  assert(BuildOpts.AddRichCXXConstructors &&
+         "We should not be managing construction contexts!");
+  assert(ConstructionContextMap.count(E) &&
+         "Cannot exit construction context without the context!");
+  ConstructionContextMap.erase(E);
+}
+
+/// BuildCFG - Constructs a CFG from an AST (a Stmt*).  The AST can represent an
+///  arbitrary statement.  Examples include a single expression or a function
+///  body (compound statement).  The ownership of the returned CFG is
+///  transferred to the caller.  If CFG construction fails, this method returns
+///  NULL.
+std::unique_ptr<CFG> CFGBuilder::buildCFG(const Decl *D, Stmt *Statement) {
+  assert(cfg.get());
+  if (!Statement)
+    return nullptr;
+
+  // Create an empty block that will serve as the exit block for the CFG.  Since
+  // this is the first block added to the CFG, it will be implicitly registered
+  // as the exit block.
+  Succ = createBlock();
+  assert(Succ == &cfg->getExit());
+  Block = nullptr;  // the EXIT block is empty.  Create all other blocks lazily.
+
+  if (BuildOpts.AddImplicitDtors)
+    if (const CXXDestructorDecl *DD = dyn_cast_or_null<CXXDestructorDecl>(D))
+      addImplicitDtorsForDestructor(DD);
+
+  // Visit the statements and create the CFG.
+  CFGBlock *B = addStmt(Statement);
+
+  if (badCFG)
+    return nullptr;
+
+  // For C++ constructor add initializers to CFG. Constructors of virtual bases
+  // are ignored unless the object is of the most derived class.
+  //   class VBase { VBase() = default; VBase(int) {} };
+  //   class A : virtual public VBase { A() : VBase(0) {} };
+  //   class B : public A {};
+  //   B b; // Constructor calls in order: VBase(), A(), B().
+  //        // VBase(0) is ignored because A isn't the most derived class.
+  // This may result in the virtual base(s) being already initialized at this
+  // point, in which case we should jump right onto non-virtual bases and
+  // fields. To handle this, make a CFG branch. We only need to add one such

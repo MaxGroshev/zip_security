@@ -1,0 +1,50 @@
+      // Restore savedTInfo into (extended) decl info.
+      getExtInfo()->TInfo = savedTInfo;
+    }
+    // Set qualifier info.
+    getExtInfo()->QualifierLoc = QualifierLoc;
+  } else if (hasExtInfo()) {
+    // Here Qualifier == 0, i.e., we are removing the qualifier (if any).
+    getExtInfo()->QualifierLoc = QualifierLoc;
+  }
+}
+
+void DeclaratorDecl::setTrailingRequiresClause(Expr *TrailingRequiresClause) {
+  assert(TrailingRequiresClause);
+  // Make sure the extended decl info is allocated.
+  if (!hasExtInfo()) {
+    // Save (non-extended) type source info pointer.
+    auto *savedTInfo = DeclInfo.get<TypeSourceInfo*>();
+    // Allocate external info struct.
+    DeclInfo = new (getASTContext()) ExtInfo;
+    // Restore savedTInfo into (extended) decl info.
+    getExtInfo()->TInfo = savedTInfo;
+  }
+  // Set requires clause info.
+  getExtInfo()->TrailingRequiresClause = TrailingRequiresClause;
+}
+
+void DeclaratorDecl::setTemplateParameterListsInfo(
+    ASTContext &Context, ArrayRef<TemplateParameterList *> TPLists) {
+  assert(!TPLists.empty());
+  // Make sure the extended decl info is allocated.
+  if (!hasExtInfo()) {
+    // Save (non-extended) type source info pointer.
+    auto *savedTInfo = DeclInfo.get<TypeSourceInfo*>();
+    // Allocate external info struct.
+    DeclInfo = new (getASTContext()) ExtInfo;
+    // Restore savedTInfo into (extended) decl info.
+    getExtInfo()->TInfo = savedTInfo;
+  }
+  // Set the template parameter lists info.
+  getExtInfo()->setTemplateParameterListsInfo(Context, TPLists);
+}
+
+SourceLocation DeclaratorDecl::getOuterLocStart() const {
+  return getTemplateOrInnerLocStart(this);
+}
+
+// Helper function: returns true if QT is or contains a type
+// having a postfix component.
+static bool typeIsPostfix(QualType QT) {
+  while (true) {

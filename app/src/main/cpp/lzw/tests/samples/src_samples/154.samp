@@ -1,0 +1,50 @@
+                llvm::SmallVectorImpl<llvm::SmallString<128>> &IncFlags) {
+  using namespace llvm;
+  using namespace sys;
+
+  auto getAbsPath = [](StringRef InInc, SmallVectorImpl<char> &OutInc) -> bool {
+    if (path::is_absolute(InInc)) // Nothing to do here...
+      return false;
+    std::error_code EC = fs::current_path(OutInc);
+    if (EC)
+      return false;
+    path::append(OutInc, InInc);
+    return true;
+  };
+
+  SmallString<128> NewInc;
+  if (NumArgs == 1) {
+    StringRef FlagRef(Args[Idx + NumArgs - 1]);
+    assert((FlagRef.starts_with("-F") || FlagRef.starts_with("-I")) &&
+           "Expecting -I or -F");
+    StringRef Inc = FlagRef.slice(2, StringRef::npos);
+    if (getAbsPath(Inc, NewInc)) {
+      SmallString<128> NewArg(FlagRef.slice(0, 2));
+      NewArg += NewInc;
+      IncFlags.push_back(std::move(NewArg));
+    }
+    return;
+  }
+
+  assert(NumArgs == 2 && "Not expecting more than two arguments");
+  StringRef Inc(Args[Idx + NumArgs - 1]);
+  if (!getAbsPath(Inc, NewInc))
+    return;
+  IncFlags.push_back(SmallString<128>(Args[Idx]));
+  IncFlags.push_back(std::move(NewInc));
+}
+
+void Command::Print(raw_ostream &OS, const char *Terminator, bool Quote,
+                    CrashReportInfo *CrashInfo) const {
+  // Always quote the exe.
+  OS << ' ';
+  llvm::sys::printArg(OS, Executable, /*Quote=*/true);
+
+  ArrayRef<const char *> Args = Arguments;
+  SmallVector<const char *, 128> ArgsRespFile;
+  if (ResponseFile != nullptr) {
+    buildArgvForResponseFile(ArgsRespFile);
+    Args = ArrayRef<const char *>(ArgsRespFile).slice(1); // no executable name
+  } else if (PrependArg) {
+    OS << ' ';
+    llvm::sys::printArg(OS, PrependArg, /*Quote=*/true);

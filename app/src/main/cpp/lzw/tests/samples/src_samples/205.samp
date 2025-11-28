@@ -1,0 +1,50 @@
+    IO.mapOptional("AuditedForNullability", C.AuditedForNullability, false);
+    IO.mapOptional("Availability", C.Availability.Mode,
+                   APIAvailability::Available);
+    IO.mapOptional("AvailabilityMsg", C.Availability.Msg, StringRef(""));
+    IO.mapOptional("SwiftPrivate", C.SwiftPrivate);
+    IO.mapOptional("SwiftName", C.SwiftName, StringRef(""));
+    IO.mapOptional("SwiftBridge", C.SwiftBridge);
+    IO.mapOptional("NSErrorDomain", C.NSErrorDomain);
+    IO.mapOptional("SwiftImportAsNonGeneric", C.SwiftImportAsNonGeneric);
+    IO.mapOptional("SwiftObjCMembers", C.SwiftObjCMembers);
+    IO.mapOptional("Methods", C.Methods);
+    IO.mapOptional("Properties", C.Properties);
+  }
+};
+} // namespace yaml
+} // namespace llvm
+
+namespace {
+struct Function {
+  StringRef Name;
+  ParamsSeq Params;
+  NullabilitySeq Nullability;
+  std::optional<NullabilityKind> NullabilityOfRet;
+  std::optional<api_notes::RetainCountConventionKind> RetainCountConvention;
+  AvailabilityItem Availability;
+  std::optional<bool> SwiftPrivate;
+  StringRef SwiftName;
+  StringRef Type;
+  StringRef ResultType;
+};
+
+typedef std::vector<Function> FunctionsSeq;
+} // namespace
+
+LLVM_YAML_IS_SEQUENCE_VECTOR(Function)
+
+namespace llvm {
+namespace yaml {
+template <> struct MappingTraits<Function> {
+  static void mapping(IO &IO, Function &F) {
+    IO.mapRequired("Name", F.Name);
+    IO.mapOptional("Parameters", F.Params);
+    IO.mapOptional("Nullability", F.Nullability);
+    IO.mapOptional("NullabilityOfRet", F.NullabilityOfRet, std::nullopt);
+    IO.mapOptional("RetainCountConvention", F.RetainCountConvention);
+    IO.mapOptional("Availability", F.Availability.Mode,
+                   APIAvailability::Available);
+    IO.mapOptional("AvailabilityMsg", F.Availability.Msg, StringRef(""));
+    IO.mapOptional("SwiftPrivate", F.SwiftPrivate);
+    IO.mapOptional("SwiftName", F.SwiftName, StringRef(""));

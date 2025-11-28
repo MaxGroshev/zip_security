@@ -1,0 +1,50 @@
+      return nullptr;
+    SwitchSuccessor = Block;
+  } else SwitchSuccessor = Succ;
+
+  // Save the current "switch" context.
+  SaveAndRestore save_switch(SwitchTerminatedBlock),
+      save_default(DefaultCaseBlock);
+  SaveAndRestore save_break(BreakJumpTarget);
+
+  // Set the "default" case to be the block after the switch statement.  If the
+  // switch statement contains a "default:", this value will be overwritten with
+  // the block for that code.
+  DefaultCaseBlock = SwitchSuccessor;
+
+  // Create a new block that will contain the switch statement.
+  SwitchTerminatedBlock = createBlock(false);
+
+  // Now process the switch body.  The code after the switch is the implicit
+  // successor.
+  Succ = SwitchSuccessor;
+  BreakJumpTarget = JumpTarget(SwitchSuccessor, ScopePos);
+
+  // When visiting the body, the case statements should automatically get linked
+  // up to the switch.  We also don't keep a pointer to the body, since all
+  // control-flow from the switch goes to case/default statements.
+  assert(Terminator->getBody() && "switch must contain a non-NULL body");
+  Block = nullptr;
+
+  // For pruning unreachable case statements, save the current state
+  // for tracking the condition value.
+  SaveAndRestore save_switchExclusivelyCovered(switchExclusivelyCovered, false);
+
+  // Determine if the switch condition can be explicitly evaluated.
+  assert(Terminator->getCond() && "switch condition must be non-NULL");
+  Expr::EvalResult result;
+  bool b = tryEvaluate(Terminator->getCond(), result);
+  SaveAndRestore save_switchCond(switchCond, b ? &result : nullptr);
+
+  // If body is not a compound statement create implicit scope
+  // and add destructors.
+  if (!isa<CompoundStmt>(Terminator->getBody()))
+    addLocalScopeAndDtors(Terminator->getBody());
+
+  addStmt(Terminator->getBody());
+  if (Block) {
+    if (badCFG)
+      return nullptr;
+  }
+
+  // If we have no "default:" case, the default transition is to the code

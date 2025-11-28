@@ -1,0 +1,50 @@
+  /// - if a subexpression is executed conditionally, the first
+  ///   CXXBindTemporaryExpr we encounter in that subexpression (which
+  ///   corresponds to the last temporary destructor we have to call for this
+  ///   subexpression) and the CFG block at that point (which will become the
+  ///   successor block when inserting the decision point).
+  ///
+  /// That way, we can build the branch structure for temporary destructors as
+  /// follows:
+  /// 1. If a subexpression is executed unconditionally, we add the temporary
+  ///    destructor calls to the current block.
+  /// 2. If a subexpression is executed conditionally, when we encounter a
+  ///    CXXBindTemporaryExpr:
+  ///    a) If it is the first temporary destructor call in the subexpression,
+  ///       we remember the CXXBindTemporaryExpr and the current block in the
+  ///       TempDtorContext; we start a new block, and insert the temporary
+  ///       destructor call.
+  ///    b) Otherwise, add the temporary destructor call to the current block.
+  ///  3. When we finished visiting a conditionally executed subexpression,
+  ///     and we found at least one temporary constructor during the visitation
+  ///     (2.a has executed), we insert a decision block that uses the
+  ///     CXXBindTemporaryExpr as terminator, and branches to the current block
+  ///     if the CXXBindTemporaryExpr was marked executed, and otherwise
+  ///     branches to the stored successor.
+  struct TempDtorContext {
+    TempDtorContext() = default;
+    TempDtorContext(TryResult KnownExecuted)
+        : IsConditional(true), KnownExecuted(KnownExecuted) {}
+
+    /// Returns whether we need to start a new branch for a temporary destructor
+    /// call. This is the case when the temporary destructor is
+    /// conditionally executed, and it is the first one we encounter while
+    /// visiting a subexpression - other temporary destructors at the same level
+    /// will be added to the same block and are executed under the same
+    /// condition.
+    bool needsTempDtorBranch() const {
+      return IsConditional && !TerminatorExpr;
+    }
+
+    /// Remember the successor S of a temporary destructor decision branch for
+    /// the corresponding CXXBindTemporaryExpr E.
+    void setDecisionPoint(CFGBlock *S, CXXBindTemporaryExpr *E) {
+      Succ = S;
+      TerminatorExpr = E;
+    }
+
+    const bool IsConditional = false;
+    const TryResult KnownExecuted = true;
+    CFGBlock *Succ = nullptr;
+    CXXBindTemporaryExpr *TerminatorExpr = nullptr;
+  };

@@ -1,0 +1,50 @@
+      RHSAlwaysFalse &= Res2.isFalse();
+    }
+
+    if (AlwaysTrue || AlwaysFalse) {
+      if (!LHSAlwaysTrue && !LHSAlwaysFalse && !RHSAlwaysTrue &&
+          !RHSAlwaysFalse && BuildOpts.Observer)
+        BuildOpts.Observer->compareAlwaysTrue(B, AlwaysTrue);
+      return TryResult(AlwaysTrue);
+    }
+    return {};
+  }
+
+  /// A bitwise-or with a non-zero constant always evaluates to true.
+  TryResult checkIncorrectBitwiseOrOperator(const BinaryOperator *B) {
+    const Expr *LHSConstant =
+        tryTransformToIntOrEnumConstant(B->getLHS()->IgnoreParenImpCasts());
+    const Expr *RHSConstant =
+        tryTransformToIntOrEnumConstant(B->getRHS()->IgnoreParenImpCasts());
+
+    if ((LHSConstant && RHSConstant) || (!LHSConstant && !RHSConstant))
+      return {};
+
+    const Expr *Constant = LHSConstant ? LHSConstant : RHSConstant;
+
+    Expr::EvalResult Result;
+    if (!Constant->EvaluateAsInt(Result, *Context))
+      return {};
+
+    if (Result.Val.getInt() == 0)
+      return {};
+
+    if (BuildOpts.Observer)
+      BuildOpts.Observer->compareBitwiseOr(B);
+
+    return TryResult(true);
+  }
+
+  /// Try and evaluate an expression to an integer constant.
+  bool tryEvaluate(Expr *S, Expr::EvalResult &outResult) {
+    if (!BuildOpts.PruneTriviallyFalseEdges)
+      return false;
+    return !S->isTypeDependent() &&
+           !S->isValueDependent() &&
+           S->EvaluateAsRValue(outResult, *Context);
+  }
+
+  /// tryEvaluateBool - Try and evaluate the Stmt and return 0 or 1
+  /// if we can evaluate to a known value, otherwise return -1.
+  TryResult tryEvaluateBool(Expr *S) {
+    if (!BuildOpts.PruneTriviallyFalseEdges ||

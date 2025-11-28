@@ -1,0 +1,50 @@
+  // If this isn't a friend then it's not a member-like constrained friend.
+  if (!getFriendObjectKind()) {
+    return false;
+  }
+
+  if (!getDescribedFunctionTemplate()) {
+    // If these friends don't have constraints, they aren't constrained, and
+    // thus don't fall under temp.friend p9. Else the simple presence of a
+    // constraint makes them unique.
+    return getTrailingRequiresClause();
+  }
+
+  return FriendConstraintRefersToEnclosingTemplate();
+}
+
+MultiVersionKind FunctionDecl::getMultiVersionKind() const {
+  if (hasAttr<TargetAttr>())
+    return MultiVersionKind::Target;
+  if (hasAttr<TargetVersionAttr>())
+    return MultiVersionKind::TargetVersion;
+  if (hasAttr<CPUDispatchAttr>())
+    return MultiVersionKind::CPUDispatch;
+  if (hasAttr<CPUSpecificAttr>())
+    return MultiVersionKind::CPUSpecific;
+  if (hasAttr<TargetClonesAttr>())
+    return MultiVersionKind::TargetClones;
+  return MultiVersionKind::None;
+}
+
+bool FunctionDecl::isCPUDispatchMultiVersion() const {
+  return isMultiVersion() && hasAttr<CPUDispatchAttr>();
+}
+
+bool FunctionDecl::isCPUSpecificMultiVersion() const {
+  return isMultiVersion() && hasAttr<CPUSpecificAttr>();
+}
+
+bool FunctionDecl::isTargetMultiVersion() const {
+  return isMultiVersion() &&
+         (hasAttr<TargetAttr>() || hasAttr<TargetVersionAttr>());
+}
+
+bool FunctionDecl::isTargetMultiVersionDefault() const {
+  if (!isMultiVersion())
+    return false;
+  if (hasAttr<TargetAttr>())
+    return getAttr<TargetAttr>()->isDefaultVersion();
+  return hasAttr<TargetVersionAttr>() &&
+         getAttr<TargetVersionAttr>()->isDefaultVersion();
+}

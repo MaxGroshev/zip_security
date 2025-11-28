@@ -1,0 +1,50 @@
+    // Record the first (most recent) TentativeDefinition that is encountered.
+    if (Kind == TentativeDefinition && !LastTentative)
+      LastTentative = Decl;
+  }
+
+  return LastTentative;
+}
+
+VarDecl *VarDecl::getDefinition(ASTContext &C) {
+  VarDecl *First = getFirstDecl();
+  for (auto *I : First->redecls()) {
+    if (I->isThisDeclarationADefinition(C) == Definition)
+      return I;
+  }
+  return nullptr;
+}
+
+VarDecl::DefinitionKind VarDecl::hasDefinition(ASTContext &C) const {
+  DefinitionKind Kind = DeclarationOnly;
+
+  const VarDecl *First = getFirstDecl();
+  for (auto *I : First->redecls()) {
+    Kind = std::max(Kind, I->isThisDeclarationADefinition(C));
+    if (Kind == Definition)
+      break;
+  }
+
+  return Kind;
+}
+
+const Expr *VarDecl::getAnyInitializer(const VarDecl *&D) const {
+  for (auto *I : redecls()) {
+    if (auto Expr = I->getInit()) {
+      D = I;
+      return Expr;
+    }
+  }
+  return nullptr;
+}
+
+bool VarDecl::hasInit() const {
+  if (auto *P = dyn_cast<ParmVarDecl>(this))
+    if (P->hasUnparsedDefaultArg() || P->hasUninstantiatedDefaultArg())
+      return false;
+
+  return !Init.isNull();
+}
+
+Expr *VarDecl::getInit() {
+  if (!hasInit())

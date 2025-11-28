@@ -1,0 +1,50 @@
+  StringRef SwiftName;
+  std::optional<bool> SwiftPrivate;
+  std::optional<StringRef> SwiftBridge;
+  std::optional<StringRef> NSErrorDomain;
+  std::optional<std::string> SwiftImportAs;
+  std::optional<std::string> SwiftRetainOp;
+  std::optional<std::string> SwiftReleaseOp;
+  std::optional<EnumExtensibilityKind> EnumExtensibility;
+  std::optional<bool> FlagEnum;
+  std::optional<EnumConvenienceAliasKind> EnumConvenienceKind;
+};
+
+typedef std::vector<Tag> TagsSeq;
+} // namespace
+
+LLVM_YAML_IS_SEQUENCE_VECTOR(Tag)
+
+namespace llvm {
+namespace yaml {
+template <> struct ScalarEnumerationTraits<EnumExtensibilityKind> {
+  static void enumeration(IO &IO, EnumExtensibilityKind &EEK) {
+    IO.enumCase(EEK, "none", EnumExtensibilityKind::None);
+    IO.enumCase(EEK, "open", EnumExtensibilityKind::Open);
+    IO.enumCase(EEK, "closed", EnumExtensibilityKind::Closed);
+  }
+};
+
+template <> struct MappingTraits<Tag> {
+  static void mapping(IO &IO, Tag &T) {
+    IO.mapRequired("Name", T.Name);
+    IO.mapOptional("Availability", T.Availability.Mode,
+                   APIAvailability::Available);
+    IO.mapOptional("AvailabilityMsg", T.Availability.Msg, StringRef(""));
+    IO.mapOptional("SwiftPrivate", T.SwiftPrivate);
+    IO.mapOptional("SwiftName", T.SwiftName, StringRef(""));
+    IO.mapOptional("SwiftBridge", T.SwiftBridge);
+    IO.mapOptional("NSErrorDomain", T.NSErrorDomain);
+    IO.mapOptional("SwiftImportAs", T.SwiftImportAs);
+    IO.mapOptional("SwiftReleaseOp", T.SwiftReleaseOp);
+    IO.mapOptional("SwiftRetainOp", T.SwiftRetainOp);
+    IO.mapOptional("EnumExtensibility", T.EnumExtensibility);
+    IO.mapOptional("FlagEnum", T.FlagEnum);
+    IO.mapOptional("EnumKind", T.EnumConvenienceKind);
+  }
+};
+} // namespace yaml
+} // namespace llvm
+
+namespace {
+struct Typedef {

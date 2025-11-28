@@ -1,0 +1,50 @@
+}
+
+// TODO: Support adding LoopExit element to the CFG in case where the loop is
+// ended by ReturnStmt, GotoStmt or ThrowExpr.
+void CFGBuilder::addLoopExit(const Stmt *LoopStmt){
+  if(!BuildOpts.AddLoopExit)
+    return;
+  autoCreateBlock();
+  appendLoopExit(Block, LoopStmt);
+}
+
+/// Adds the CFG elements for leaving the scope of automatic objects in
+/// range [B, E). This include following:
+///   * AutomaticObjectDtor for variables with non-trivial destructor
+///   * LifetimeEnds for all variables
+///   * ScopeEnd for each scope left
+void CFGBuilder::addAutomaticObjHandling(LocalScope::const_iterator B,
+                                         LocalScope::const_iterator E,
+                                         Stmt *S) {
+  if (!BuildOpts.AddScopes && !BuildOpts.AddImplicitDtors &&
+      !BuildOpts.AddLifetime)
+    return;
+
+  if (B == E)
+    return;
+
+  // Not leaving the scope, only need to handle destruction and lifetime
+  if (B.inSameLocalScope(E)) {
+    addAutomaticObjDestruction(B, E, S);
+    return;
+  }
+
+  // Extract information about all local scopes that are left
+  SmallVector<LocalScope::const_iterator, 10> LocalScopeEndMarkers;
+  LocalScopeEndMarkers.push_back(B);
+  for (LocalScope::const_iterator I = B; I != E; ++I) {
+    if (!I.inSameLocalScope(LocalScopeEndMarkers.back()))
+      LocalScopeEndMarkers.push_back(I);
+  }
+  LocalScopeEndMarkers.push_back(E);
+
+  // We need to leave the scope in reverse order, so we reverse the end
+  // markers
+  std::reverse(LocalScopeEndMarkers.begin(), LocalScopeEndMarkers.end());
+  auto Pairwise =
+      llvm::zip(LocalScopeEndMarkers, llvm::drop_begin(LocalScopeEndMarkers));
+  for (auto [E, B] : Pairwise) {
+    if (!B.inSameLocalScope(E))
+      addScopeExitHandling(B, E, S);
+    addAutomaticObjDestruction(B, E, S);

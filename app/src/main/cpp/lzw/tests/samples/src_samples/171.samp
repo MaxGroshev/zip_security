@@ -1,0 +1,50 @@
+      unsigned diagID = flang->getDiagnostics().getCustomDiagID(
+          clang::DiagnosticsEngine::Error, "unable to load plugin '%0': '%1'");
+      flang->getDiagnostics().Report(diagID) << path << error;
+    }
+  }
+
+  // Honor -mllvm. This should happen AFTER plugins have been loaded!
+  if (!flang->getFrontendOpts().llvmArgs.empty()) {
+    unsigned numArgs = flang->getFrontendOpts().llvmArgs.size();
+    auto args = std::make_unique<const char *[]>(numArgs + 2);
+    args[0] = "flang (LLVM option parsing)";
+
+    for (unsigned i = 0; i != numArgs; ++i)
+      args[i + 1] = flang->getFrontendOpts().llvmArgs[i].c_str();
+
+    args[numArgs + 1] = nullptr;
+    llvm::cl::ParseCommandLineOptions(numArgs + 1, args.get());
+  }
+
+  // Honor -mmlir. This should happen AFTER plugins have been loaded!
+  if (!flang->getFrontendOpts().mlirArgs.empty()) {
+    mlir::registerMLIRContextCLOptions();
+    mlir::registerPassManagerCLOptions();
+    mlir::registerAsmPrinterCLOptions();
+    unsigned numArgs = flang->getFrontendOpts().mlirArgs.size();
+    auto args = std::make_unique<const char *[]>(numArgs + 2);
+    args[0] = "flang (MLIR option parsing)";
+
+    for (unsigned i = 0; i != numArgs; ++i)
+      args[i + 1] = flang->getFrontendOpts().mlirArgs[i].c_str();
+
+    args[numArgs + 1] = nullptr;
+    llvm::cl::ParseCommandLineOptions(numArgs + 1, args.get());
+  }
+
+  // If there were errors in processing arguments, don't do anything else.
+  if (flang->getDiagnostics().hasErrorOccurred()) {
+    return false;
+  }
+
+  updateDiagEngineForOptRemarks(flang->getDiagnostics(),
+                                flang->getDiagnosticOpts());
+
+  // Create and execute the frontend action.
+  std::unique_ptr<FrontendAction> act(createFrontendAction(*flang));
+  if (!act)
+    return false;
+
+  bool success = flang->executeAction(*act);
+  return success;

@@ -1,0 +1,50 @@
+    if (IgnoreLinkage)
+      return nullptr;
+    bool InternalLinkage;
+    if (auto *ND = dyn_cast<NamedDecl>(this))
+      InternalLinkage = !ND->hasExternalFormalLinkage();
+    else
+      InternalLinkage = isInAnonymousNamespace();
+    return InternalLinkage ? M->Kind == Module::ModuleHeaderUnit ? M : M->Parent
+                           : nullptr;
+  }
+
+  case Module::PrivateModuleFragment:
+    // The private module fragment is part of its containing module for linkage
+    // purposes.
+    return M->Parent;
+  }
+
+  llvm_unreachable("unknown module kind");
+}
+
+void NamedDecl::printName(raw_ostream &OS, const PrintingPolicy &Policy) const {
+  Name.print(OS, Policy);
+}
+
+void NamedDecl::printName(raw_ostream &OS) const {
+  printName(OS, getASTContext().getPrintingPolicy());
+}
+
+std::string NamedDecl::getQualifiedNameAsString() const {
+  std::string QualName;
+  llvm::raw_string_ostream OS(QualName);
+  printQualifiedName(OS, getASTContext().getPrintingPolicy());
+  return QualName;
+}
+
+void NamedDecl::printQualifiedName(raw_ostream &OS) const {
+  printQualifiedName(OS, getASTContext().getPrintingPolicy());
+}
+
+void NamedDecl::printQualifiedName(raw_ostream &OS,
+                                   const PrintingPolicy &P) const {
+  if (getDeclContext()->isFunctionOrMethod()) {
+    // We do not print '(anonymous)' for function parameters without name.
+    printName(OS, P);
+    return;
+  }
+  printNestedNameSpecifier(OS, P);
+  if (getDeclName())
+    OS << *this;
+  else {

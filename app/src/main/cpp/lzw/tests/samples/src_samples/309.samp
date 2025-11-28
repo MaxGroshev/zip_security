@@ -1,0 +1,50 @@
+  return dyn_cast_if_present<FunctionTemplateDecl>(
+      TemplateOrSpecialization.dyn_cast<NamedDecl *>());
+}
+
+void FunctionDecl::setDescribedFunctionTemplate(
+    FunctionTemplateDecl *Template) {
+  assert(TemplateOrSpecialization.isNull() &&
+         "Member function is already a specialization");
+  TemplateOrSpecialization = Template;
+}
+
+bool FunctionDecl::isFunctionTemplateSpecialization() const {
+  return TemplateOrSpecialization.is<FunctionTemplateSpecializationInfo *>() ||
+         TemplateOrSpecialization
+             .is<DependentFunctionTemplateSpecializationInfo *>();
+}
+
+void FunctionDecl::setInstantiatedFromDecl(FunctionDecl *FD) {
+  assert(TemplateOrSpecialization.isNull() &&
+         "Function is already a specialization");
+  TemplateOrSpecialization = FD;
+}
+
+FunctionDecl *FunctionDecl::getInstantiatedFromDecl() const {
+  return dyn_cast_if_present<FunctionDecl>(
+      TemplateOrSpecialization.dyn_cast<NamedDecl *>());
+}
+
+bool FunctionDecl::isImplicitlyInstantiable() const {
+  // If the function is invalid, it can't be implicitly instantiated.
+  if (isInvalidDecl())
+    return false;
+
+  switch (getTemplateSpecializationKindForInstantiation()) {
+  case TSK_Undeclared:
+  case TSK_ExplicitInstantiationDefinition:
+  case TSK_ExplicitSpecialization:
+    return false;
+
+  case TSK_ImplicitInstantiation:
+    return true;
+
+  case TSK_ExplicitInstantiationDeclaration:
+    // Handled below.
+    break;
+  }
+
+  // Find the actual template from which we will instantiate.
+  const FunctionDecl *PatternDecl = getTemplateInstantiationPattern();
+  bool HasPattern = false;
